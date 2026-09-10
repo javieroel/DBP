@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Panel académico para registrar y consultar incidentes.">
+  <title>Incidencias | Panel de seguimiento</title>
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+  <header class="site-header" id="inicio">
+    <div class="container header-content">
+      <a class="brand" href="#inicio" aria-label="Ir al inicio de Incidencias">
+        <span class="brand-mark" aria-hidden="true">!</span>
+        <span>Incidencias</span>
+      </a>
+      <nav class="site-nav" aria-label="Navegación principal">
+        <a href="#registrar">Registrar</a>
+        <a href="#incidentes">Incidentes</a>
+        <a href="#justificacion">Proyecto</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="page-title">
+      <div class="container hero-content">
+        <p class="eyebrow">Panel de seguimiento · Unidad 1</p>
+        <h1 id="page-title">Registro claro para resolver incidentes.</h1>
+        <p class="hero-copy">Un espacio inicial para documentar problemas, consultar su avance y mantener la información organizada.</p>
+        <a class="button button-primary" href="#registrar">Registrar un incidente</a>
+      </div>
+    </section>
+
+    <section class="workspace container" aria-label="Gestión de incidentes">
+      <div class="content-column">
+        <section class="panel" id="registrar" aria-labelledby="form-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Nuevo registro</p>
+              <h2 id="form-title">Registrar incidente</h2>
+            </div>
+            <span class="status-dot">Formulario activo</span>
+          </div>
+
+          <form class="incident-form" action="#incidentes" method="get">
+            <div class="form-grid">
+              <div class="form-field form-field-wide">
+                <label for="title">Título del incidente</label>
+                <input id="title" name="title" type="text" minlength="5" maxlength="80" required placeholder="Ej. No puedo iniciar sesión">
+                <small id="title-help">Describe el problema en una frase breve.</small>
+              </div>
+
+              <div class="form-field">
+                <label for="category">Categoría</label>
+                <select id="category" name="category" required>
+                  <option value="">Selecciona una categoría</option>
+                  <option value="acceso">Acceso</option>
+                  <option value="sistema">Sistema</option>
+                  <option value="red">Red</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="priority">Prioridad</label>
+                <select id="priority" name="priority" required>
+                  <option value="">Selecciona una prioridad</option>
+                  <option value="alta">Alta</option>
+                  <option value="media">Media</option>
+                  <option value="baja">Baja</option>
+                </select>
+              </div>
+
+              <div class="form-field form-field-wide">
+                <label for="description">Descripción</label>
+                <textarea id="description" name="description" rows="5" minlength="20" maxlength="500" required placeholder="Explica qué ocurrió, cuándo ocurrió y qué intentaste hacer."></textarea>
+                <small id="description-help">Incluye la información necesaria para reproducir el incidente.</small>
+              </div>
+
+              <div class="form-field">
+                <label for="email">Correo de contacto</label>
+                <input id="email" name="email" type="email" autocomplete="email" required placeholder="nombre@ejemplo.com">
+                <small>Usaremos este dato para dar seguimiento.</small>
+              </div>
+
+              <div class="form-field">
+                <label for="date">Fecha del incidente</label>
+                <input id="date" name="date" type="date" required>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="button button-primary" type="submit">Guardar incidente</button>
+              <button class="button button-secondary" type="reset">Limpiar formulario</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel" id="incidentes" aria-labelledby="list-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Seguimiento</p>
+              <h2 id="list-title">Incidentes recientes</h2>
+            </div>
+            <span class="record-count">3 registros</span>
+          </div>
+          <div class="incident-list">
+            <article class="incident-item">
+              <div class="incident-item-topline">
+                <span class="incident-id">INC-024</span>
+                <span class="badge badge-progress">En revisión</span>
+              </div>
+              <h3>El acceso al aula virtual se interrumpe</h3>
+              <p>La sesión se cierra después de unos minutos y no permite entregar actividades.</p>
+              <div class="incident-meta"><span>Acceso</span><span>Prioridad alta</span><span>10 sep 2026</span></div>
+            </article>
+            <article class="incident-item">
+              <div class="incident-item-topline">
+                <span class="incident-id">INC-023</span>
+                <span class="badge badge-open">Abierto</span>
+              </div>
+              <h3>La impresora no aparece en la red</h3>
+              <p>El equipo de laboratorio no encuentra la impresora compartida.</p>
+              <div class="incident-meta"><span>Red</span><span>Prioridad media</span><span>09 sep 2026</span></div>
+            </article>
+            <article class="incident-item">
+              <div class="incident-item-topline">
+                <span class="incident-id">INC-022</span>
+                <span class="badge badge-closed">Resuelto</span>
+              </div>
+              <h3>Contraseña temporal rechazada</h3>
+              <p>La cuenta fue restablecida y el usuario pudo acceder nuevamente.</p>
+              <div class="incident-meta"><span>Sistema</span><span>Prioridad baja</span><span>08 sep 2026</span></div>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <aside class="sidebar" aria-labelledby="detail-title">
+        <div class="panel detail-panel">
+          <p class="eyebrow">Vista de detalle</p>
+          <h2 id="detail-title">INC-024</h2>
+          <p class="detail-title">El acceso al aula virtual se interrumpe</p>
+          <dl class="detail-list">
+            <div><dt>Estado</dt><dd><span class="badge badge-progress">En revisión</span></dd></div>
+            <div><dt>Reportado por</dt><dd>María López</dd></div>
+            <div><dt>Fecha</dt><dd>10 sep 2026</dd></div>
+            <div><dt>Área</dt><dd>Servicios escolares</dd></div>
+          </dl>
+          <div class="detail-description">
+            <h3>Descripción</h3>
+            <p>La sesión se cierra después de unos minutos y no permite entregar actividades. El problema aparece en dos navegadores distintos.</p>
+          </div>
+          <button class="button button-secondary button-full" type="button">Actualizar estado</button>
+        </div>
+        <div class="tip-box">
+          <strong>Próximo paso</strong>
+          <p>Verificar los registros de autenticación y confirmar si el problema afecta a más usuarios.</p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="justification container" id="justificacion" aria-labelledby="justification-title">
+      <p class="eyebrow">Fundamentación</p>
+      <h2 id="justification-title">Justificación técnica del proyecto</h2>
+      <div class="justification-copy">
+        <p>Este primer prototipo aplica los fundamentos de la Unidad 1 mediante una estructura web sencilla, semántica y preparada para crecer. El documento usa HTML5 como lenguaje de marcado y declara el idioma español, la codificación UTF-8 y la etiqueta viewport para que el contenido se adapte correctamente a distintos dispositivos. En lugar de construir toda la interfaz con elementos genéricos, se utilizan header, nav, main, section, aside y footer. Cada elemento comunica la función de su contenido: la cabecera identifica el sitio, la navegación permite desplazarse entre áreas, el contenido principal reúne el trabajo, las secciones separan responsabilidades y la barra lateral muestra información complementaria del incidente seleccionado.</p>
+        <p>El formulario de registro está diseñado con accesibilidad como punto de partida. Cada control tiene un label asociado mediante los atributos for e id, por lo que puede utilizarse con teclado y tecnologías de asistencia. Las instrucciones pequeñas funcionan como ayudas contextuales y explican qué información conviene escribir. También se incluye validación nativa de HTML5: required evita envíos incompletos, email verifica el formato del correo, minlength y maxlength controlan la extensión de los textos, y los controles select obligan a elegir una opción real. Esta decisión permite obtener un comportamiento útil sin depender todavía de JavaScript. Más adelante se podrá agregar validación personalizada, mensajes dinámicos y almacenamiento de los registros.</p>
+        <p>La página presenta un listado simulado de tres incidentes con identificador, título, descripción, categoría, prioridad, fecha y estado. Cada registro se marca como article porque puede entenderse de forma independiente. La vista de detalle está contenida en un aside y muestra los datos del incidente activo mediante una lista de definiciones. Esta separación prepara la interfaz para conectar posteriormente una API o una base de datos, sin cambiar la organización visual. Los botones y enlaces ya señalan acciones futuras, aunque en esta etapa el objetivo principal es representar el flujo de consulta y registro.</p>
+        <p>La hoja de estilos es externa y se carga con una ruta relativa, decisión compatible con servidores locales y GitHub Pages. El box model se aplica mediante padding, border y margin para controlar el espacio real de paneles, campos y botones; además, box-sizing: border-box hace predecibles sus dimensiones. Flexbox organiza la marca, la navegación, los metadatos y las acciones del formulario, porque esos grupos necesitan alineación en un solo eje. CSS Grid distribuye el formulario en columnas y separa el contenido principal de la barra lateral. Las media queries modifican la composición debajo de 760 píxeles: el encabezado se apila, la cuadrícula pasa a una columna y los botones ocupan todo el ancho disponible.</p>
+        <p>Finalmente, la interfaz usa contraste, jerarquía tipográfica, estados visuales y foco visible para apoyar la comprensión. La combinación de color se reserva para estados y acciones, mientras los fondos claros mantienen legible la información. El diseño responsive constituye una base para reunir evidencias de funcionamiento en escritorio y móvil: en una pantalla amplia se observan dos columnas y en una pantalla pequeña el contenido fluye verticalmente sin desbordarse. Así, el proyecto demuestra los temas centrales de la unidad: estructura HTML, accesibilidad inicial, estilos CSS, modelo de caja, Flexbox, Grid, responsive design y una organización mantenible.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <p>Proyecto académico · Desarrollo Basado en Plataformas</p>
+      <a href="#inicio">Volver al inicio</a>
+    </div>
+  </footer>
+</body>
+</html>
