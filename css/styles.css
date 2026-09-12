@@ -68,15 +68,9 @@ a {
   text-decoration: none;
 }
 
-.brand-mark {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  color: var(--surface);
-  background: var(--coral);
-  border-radius: 50%;
-  font-size: 1.25rem;
+.brand-logo {
+  width: auto;
+  height: 32px; /* ajusta según la altura de tu navbar */
 }
 
 .site-nav {
@@ -99,15 +93,14 @@ a {
 }
 
 .hero {
-  padding: 84px 0 92px;
-  background: linear-gradient(120deg, #dff3ef 0%, #edf7f1 54%, #f9eadc 100%);
+  padding: 20px 0 20px;
+  background: linear-gradient(120deg, #e8eef5 0%, #eef2f7 54%, #f4f6f9 100%);
   border-bottom: 1px solid var(--line);
 }
 
 .hero-content {
   max-width: 760px;
 }
-
 .eyebrow {
   margin: 0 0 10px;
   color: var(--teal-dark);
@@ -133,7 +126,7 @@ h3 {
 h1 {
   max-width: 700px;
   margin-bottom: 18px;
-  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-size: clamp(2rem, 4vw, 5rem);
   letter-spacing: -0.04em;
 }
 
@@ -354,7 +347,6 @@ small {
 }
 
 .detail-panel {
-  position: sticky;
   top: 20px;
 }
 
@@ -477,12 +469,9 @@ small {
   }
 
   .hero {
-    padding: 58px 0 64px;
+    padding: 30px 0 50px;
   }
 
-  h1 {
-    font-size: clamp(2.35rem, 14vw, 4rem);
-  }
 
   .workspace {
     grid-template-columns: 1fr;

@@ -11,13 +11,11 @@
   <header class="site-header" id="inicio">
     <div class="container header-content">
       <a class="brand" href="#inicio" aria-label="Ir al inicio de Incidencias">
-        <span class="brand-mark" aria-hidden="true">!</span>
-        <span>Incidencias</span>
+        <img src="assets/site_images/LOGO.png" alt="Logo Incidencias" class="brand-logo">
       </a>
       <nav class="site-nav" aria-label="Navegación principal">
-        <a href="#registrar">Registrar</a>
         <a href="#incidentes">Incidentes</a>
-        <a href="#justificacion">Proyecto</a>
+        <a class="button button-primary" href="#registrar">Registrar un incidente</a>
       </nav>
     </div>
   </header>
@@ -25,10 +23,8 @@
   <main>
     <section class="hero" aria-labelledby="page-title">
       <div class="container hero-content">
-        <p class="eyebrow">Panel de seguimiento · Unidad 1</p>
-        <h1 id="page-title">Registro claro para resolver incidentes.</h1>
+        <h1>Registro de incidentes.</h1>
         <p class="hero-copy">Un espacio inicial para documentar problemas, consultar su avance y mantener la información organizada.</p>
-        <a class="button button-primary" href="#registrar">Registrar un incidente</a>
       </div>
     </section>
 
@@ -40,7 +36,6 @@
               <p class="eyebrow">Nuevo registro</p>
               <h2 id="form-title">Registrar incidente</h2>
             </div>
-            <span class="status-dot">Formulario activo</span>
           </div>
 
           <form class="incident-form" action="#incidentes" method="get">
@@ -136,9 +131,9 @@
         </section>
       </div>
 
-      <aside class="sidebar" aria-labelledby="detail-title">
+      <aside class="sidebar" aria-labelledby="Detalle del ultimo Ticket">
         <div class="panel detail-panel">
-          <p class="eyebrow">Vista de detalle</p>
+          <p class="eyebrow">Detalle del ultimo Ticket</p>
           <h2 id="detail-title">INC-024</h2>
           <p class="detail-title">El acceso al aula virtual se interrumpe</p>
           <dl class="detail-list">
@@ -158,18 +153,6 @@
           <p>Verificar los registros de autenticación y confirmar si el problema afecta a más usuarios.</p>
         </div>
       </aside>
-    </section>
-
-    <section class="justification container" id="justificacion" aria-labelledby="justification-title">
-      <p class="eyebrow">Fundamentación</p>
-      <h2 id="justification-title">Justificación técnica del proyecto</h2>
-      <div class="justification-copy">
-        <p>Este primer prototipo aplica los fundamentos de la Unidad 1 mediante una estructura web sencilla, semántica y preparada para crecer. El documento usa HTML5 como lenguaje de marcado y declara el idioma español, la codificación UTF-8 y la etiqueta viewport para que el contenido se adapte correctamente a distintos dispositivos. En lugar de construir toda la interfaz con elementos genéricos, se utilizan header, nav, main, section, aside y footer. Cada elemento comunica la función de su contenido: la cabecera identifica el sitio, la navegación permite desplazarse entre áreas, el contenido principal reúne el trabajo, las secciones separan responsabilidades y la barra lateral muestra información complementaria del incidente seleccionado.</p>
-        <p>El formulario de registro está diseñado con accesibilidad como punto de partida. Cada control tiene un label asociado mediante los atributos for e id, por lo que puede utilizarse con teclado y tecnologías de asistencia. Las instrucciones pequeñas funcionan como ayudas contextuales y explican qué información conviene escribir. También se incluye validación nativa de HTML5: required evita envíos incompletos, email verifica el formato del correo, minlength y maxlength controlan la extensión de los textos, y los controles select obligan a elegir una opción real. Esta decisión permite obtener un comportamiento útil sin depender todavía de JavaScript. Más adelante se podrá agregar validación personalizada, mensajes dinámicos y almacenamiento de los registros.</p>
-        <p>La página presenta un listado simulado de tres incidentes con identificador, título, descripción, categoría, prioridad, fecha y estado. Cada registro se marca como article porque puede entenderse de forma independiente. La vista de detalle está contenida en un aside y muestra los datos del incidente activo mediante una lista de definiciones. Esta separación prepara la interfaz para conectar posteriormente una API o una base de datos, sin cambiar la organización visual. Los botones y enlaces ya señalan acciones futuras, aunque en esta etapa el objetivo principal es representar el flujo de consulta y registro.</p>
-        <p>La hoja de estilos es externa y se carga con una ruta relativa, decisión compatible con servidores locales y GitHub Pages. El box model se aplica mediante padding, border y margin para controlar el espacio real de paneles, campos y botones; además, box-sizing: border-box hace predecibles sus dimensiones. Flexbox organiza la marca, la navegación, los metadatos y las acciones del formulario, porque esos grupos necesitan alineación en un solo eje. CSS Grid distribuye el formulario en columnas y separa el contenido principal de la barra lateral. Las media queries modifican la composición debajo de 760 píxeles: el encabezado se apila, la cuadrícula pasa a una columna y los botones ocupan todo el ancho disponible.</p>
-        <p>Finalmente, la interfaz usa contraste, jerarquía tipográfica, estados visuales y foco visible para apoyar la comprensión. La combinación de color se reserva para estados y acciones, mientras los fondos claros mantienen legible la información. El diseño responsive constituye una base para reunir evidencias de funcionamiento en escritorio y móvil: en una pantalla amplia se observan dos columnas y en una pantalla pequeña el contenido fluye verticalmente sin desbordarse. Así, el proyecto demuestra los temas centrales de la unidad: estructura HTML, accesibilidad inicial, estilos CSS, modelo de caja, Flexbox, Grid, responsive design y una organización mantenible.</p>
-      </div>
     </section>
   </main>
 
