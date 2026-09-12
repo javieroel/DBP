@@ -508,3 +508,43 @@ small {
     padding: 22px 0;
   }
 }
+
+
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.field-error {
+  display: block;
+  margin-top: 4px;
+  color: #c0392b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: #c0392b;
+  outline-color: rgba(192, 57, 43, 0.2);
+}
+
+.incident-item[role="button"] {
+  cursor: pointer;
+}
+
+.incident-item[role="button"]:hover,
+.incident-item[role="button"]:focus-visible {
+  border-color: var(--teal);
+  outline: none;
+}
+

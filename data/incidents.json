@@ -1,0 +1,35 @@
+[
+  {
+    "id": "INC-024",
+    "title": "El acceso al aula virtual se interrumpe",
+    "description": "La sesión se cierra después de unos minutos y no permite entregar actividades. El problema aparece en dos navegadores distintos.",
+    "category": "acceso",
+    "priority": "alta",
+    "date": "2026-09-10",
+    "status": "progress",
+    "reporter": "María López",
+    "area": "Servicios escolares"
+  },
+  {
+    "id": "INC-023",
+    "title": "La impresora no aparece en la red",
+    "description": "El equipo de laboratorio no encuentra la impresora compartida al intentar conectarse desde los equipos del aula 4.",
+    "category": "red",
+    "priority": "media",
+    "date": "2026-09-09",
+    "status": "open",
+    "reporter": "Carlos Andrade",
+    "area": "Laboratorio de cómputo"
+  },
+  {
+    "id": "INC-022",
+    "title": "Contraseña temporal rechazada",
+    "description": "La cuenta fue restablecida y el usuario pudo acceder nuevamente sin inconvenientes adicionales.",
+    "category": "sistema",
+    "priority": "baja",
+    "date": "2026-09-08",
+    "status": "closed",
+    "reporter": "Ana Torres",
+    "area": "Coordinación académica"
+  }
+]

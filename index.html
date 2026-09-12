@@ -38,12 +38,13 @@
             </div>
           </div>
 
-          <form class="incident-form" action="#incidentes" method="get">
+          <form class="incident-form" id="incident-form" novalidate>
             <div class="form-grid">
               <div class="form-field form-field-wide">
                 <label for="title">Título del incidente</label>
                 <input id="title" name="title" type="text" minlength="5" maxlength="80" required placeholder="Ej. No puedo iniciar sesión">
                 <small id="title-help">Describe el problema en una frase breve.</small>
+                <small id="title-error" class="field-error" hidden></small>
               </div>
 
               <div class="form-field">
@@ -55,6 +56,7 @@
                   <option value="red">Red</option>
                   <option value="otro">Otro</option>
                 </select>
+                <small id="category-error" class="field-error" hidden></small>
               </div>
 
               <div class="form-field">
@@ -65,23 +67,28 @@
                   <option value="media">Media</option>
                   <option value="baja">Baja</option>
                 </select>
+                <small id="priority-error" class="field-error" hidden></small>
               </div>
 
               <div class="form-field form-field-wide">
                 <label for="description">Descripción</label>
                 <textarea id="description" name="description" rows="5" minlength="20" maxlength="500" required placeholder="Explica qué ocurrió, cuándo ocurrió y qué intentaste hacer."></textarea>
                 <small id="description-help">Incluye la información necesaria para reproducir el incidente.</small>
+                  <small id="category-error" class="field-error" hidden></small>
               </div>
 
               <div class="form-field">
                 <label for="email">Correo de contacto</label>
                 <input id="email" name="email" type="email" autocomplete="email" required placeholder="nombre@ejemplo.com">
                 <small>Usaremos este dato para dar seguimiento.</small>
+                <small id="email-error" class="field-error" hidden></small>
               </div>
 
               <div class="form-field">
                 <label for="date">Fecha del incidente</label>
                 <input id="date" name="date" type="date" required>
+                <small>Selecciona la fecha en que ocurrió el incidente.</small>
+                <small id="date-error" class="field-error" hidden></small>
               </div>
             </div>
             <div class="form-actions">
@@ -97,56 +104,15 @@
               <p class="eyebrow">Seguimiento</p>
               <h2 id="list-title">Incidentes recientes</h2>
             </div>
-            <span class="record-count">3 registros</span>
+            <span class="record-count" id="record-count">3 registros</span>
           </div>
-          <div class="incident-list">
-            <article class="incident-item">
-              <div class="incident-item-topline">
-                <span class="incident-id">INC-024</span>
-                <span class="badge badge-progress">En revisión</span>
-              </div>
-              <h3>El acceso al aula virtual se interrumpe</h3>
-              <p>La sesión se cierra después de unos minutos y no permite entregar actividades.</p>
-              <div class="incident-meta"><span>Acceso</span><span>Prioridad alta</span><span>10 sep 2026</span></div>
-            </article>
-            <article class="incident-item">
-              <div class="incident-item-topline">
-                <span class="incident-id">INC-023</span>
-                <span class="badge badge-open">Abierto</span>
-              </div>
-              <h3>La impresora no aparece en la red</h3>
-              <p>El equipo de laboratorio no encuentra la impresora compartida.</p>
-              <div class="incident-meta"><span>Red</span><span>Prioridad media</span><span>09 sep 2026</span></div>
-            </article>
-            <article class="incident-item">
-              <div class="incident-item-topline">
-                <span class="incident-id">INC-022</span>
-                <span class="badge badge-closed">Resuelto</span>
-              </div>
-              <h3>Contraseña temporal rechazada</h3>
-              <p>La cuenta fue restablecida y el usuario pudo acceder nuevamente.</p>
-              <div class="incident-meta"><span>Sistema</span><span>Prioridad baja</span><span>08 sep 2026</span></div>
-            </article>
-          </div>
+          <div class="incident-list" id="incident-list"></div>
         </section>
       </div>
 
-      <aside class="sidebar" aria-labelledby="Detalle del ultimo Ticket">
-        <div class="panel detail-panel">
-          <p class="eyebrow">Detalle del ultimo Ticket</p>
-          <h2 id="detail-title">INC-024</h2>
-          <p class="detail-title">El acceso al aula virtual se interrumpe</p>
-          <dl class="detail-list">
-            <div><dt>Estado</dt><dd><span class="badge badge-progress">En revisión</span></dd></div>
-            <div><dt>Reportado por</dt><dd>María López</dd></div>
-            <div><dt>Fecha</dt><dd>10 sep 2026</dd></div>
-            <div><dt>Área</dt><dd>Servicios escolares</dd></div>
-          </dl>
-          <div class="detail-description">
-            <h3>Descripción</h3>
-            <p>La sesión se cierra después de unos minutos y no permite entregar actividades. El problema aparece en dos navegadores distintos.</p>
-          </div>
-          <button class="button button-secondary button-full" type="button">Actualizar estado</button>
+      <aside class="sidebar" aria-label="Detalle del último ticket">
+        <div class="panel detail-panel" id="detail-panel-content">
+          <p>Cargando incidente...</p>
         </div>
         <div class="tip-box">
           <strong>Próximo paso</strong>
@@ -162,5 +128,9 @@
       <a href="#inicio">Volver al inicio</a>
     </div>
   </footer>
+  <div id="live-region" aria-live="polite" class="sr-only"></div>
+  <script src="js/model.js"></script>
+  <script src="js/view.js"></script>
+  <script src="js/controller.js"></script>
 </body>
 </html>
