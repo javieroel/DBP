@@ -71,12 +71,52 @@ ___
 
 * **Validar dinámicamente el formulario:** que el formulario le avise al usuario si algo está mal (un campo vacío, un correo mal escrito) mientras lo está llenando, no solo cuando intenta enviarlo.
 
+El principal cambio aqui fue hacer que el formulario pueda s3er controlado con JavaScript, por lo que le agregamos un id para poder referenciarlo y tambien le agregamos el atributo de no validar ya que usariamos nuestros mensajes de error pesonalizados para cumplir con la validación segun las instrucciones. En este sentido, si intentamos registrar los datos ingresados en el formularios los mensajes de error se mostrarian de la siguiente manera:
+
+<p align="center">
+    <img src="assets/repo_images/validacion_forms.png" alt="validacion" style="width: 550px; height: 500px;">
+</p>
+
+Hay que mencionar que utilizamos la propiedad "hidden" para que no se muestren por defecto estos mensajes sino hasta que falle la validacion al presionar el boton de registro. 
+
 * **Renderizar incidentes simulados:** que la lista de incidentes ya no esté "quemada" a mano en el código, sino que aparezca en pantalla generada automáticamente a partir de los datos.
+
+Antes, los 3 que habiamos determinado como ejemplo de como se visualizaria la página idealmente estaban escritos directamente en el HTML como texto fijo. Ahora, model.js guarda esos datos en una variable, y view.js tiene una función (renderList) que recorre esos datos con código y por cada incidente crea un bloque HTML nuevo (<article>) y lo mete en la página. El resultado es que podamos ver el registro como tal en la seccion "Incidentes  recientes" e, incluso, en el sidebar que muestra el ultimo ticket registrado (renderDetail).
+
+**Ejemplo propuesto:**
+
+<p align="center">
+    <img src="assets/repo_images/ejemplo_form.png" alt="ejemplo" style="width: 500px; height: 500px;">
+</p>
+
+**Resultado en incidentes recientes:**
+
+<p align="center">
+    <img src="assets/repo_images/resultado_reciente.png" alt="resultado" style="width: 450px; height: 450px;">
+</p>
+
+**Resultado en ultimo incidente:**
+
+<p align="center">
+    <img src="assets/repo_images/resultado_detalle.png" alt="ultimo resultado" style="width: 450px; height: 550px;">
+</p>
 
 * **Consumir un JSON con Fetch:** que esos incidentes vengan de un archivo separado (como si fuera una mini base de datos), y que la página los "pida" y los cargue cuando se abre, en lugar de tenerlos escritos directamente adentro.
 
+Creamos data/incidents.json, un archivo separado con los datos en formato JSON. En model.js, la función loadIncidents() usa fetch("data/incidents.json") para pedir ese archivo de forma **asíncrona** (como si fuera una petición a un servidor) y luego lo convierte en datos que JavaScript puede usar. Por eso necesitamos Live Serve ya que fetch no funciona abriendo el archivo con doble clic, necesita un servidor real sirviendo los archivos.
+
 * **Anunciar mensajes con ARIA:** que cuando pase algo importante en la página (se registró un incidente, hay un error, se cargó la información), una persona que use lector de pantalla también se entere, aunque no pueda verlo.
 
-* **Organización tipo MVC:** que el código quede ordenado en partes separadas según su función: una que maneja los datos, otra que maneja lo que se ve en pantalla, y otra que conecta ambas cuando el usuario hace algo. Así es más fácil de entender y de corregir después.
+* **Organización tipo MVC:** Nuestro proyecto se desarrolla ordenado en partes separadas según su función: una que maneja los datos, otra que maneja lo que se ve en pantalla, y otra que conecta ambas cuando el usuario hace algo. Así es más fácil de entender y de corregir después. Podemos constatar la manera en que hemos procedido hasta este momento: 
+
+<p align="center">
+    <img src="assets/repo_images/MVC.png" alt="MVC" style="width: 200px; height: 400px;">
+</p>
+
+## ENTREGA T1S2
+
+En esta segunda entrega hemos incorporado JavaScript al esqueleto desarrollado en la primera semana, dotando a la página web de validación dinámica, renderizado de datos mediante Fetch y anuncios accesibles con ARIA, todo organizado bajo una arquitectura tipo MVC de acuerdo con la lógica del proyecto a lo largo del curso. La documentación técnica correspondiente ha sido generada. Con lo desarrollado hasta este punto realizaremos el commit y push de esta segunda entrega.
+
+___
 
 
