@@ -113,6 +113,12 @@ Creamos data/incidents.json, un archivo separado con los datos en formato JSON. 
     <img src="assets/repo_images/MVC.png" alt="MVC" style="width: 200px; height: 400px;">
 </p>
 
+Notemos que la separacion de nuestros archivos de JS tienen el siguiente propósito:
+
+* model.js responde: "¿cuáles son los datos?" (traerlos, guardarlos, agregar uno nuevo)
+* view.js responde: "¿cómo se ve eso en pantalla?" (convertir datos en HTML)
+* controller.js responde: "¿qué debe pasar cuando el usuario hace algo?" (clic, escribir, enviar) 
+
 ## ENTREGA T1S2
 
 En esta segunda entrega hemos incorporado JavaScript al esqueleto desarrollado en la primera semana, dotando a la página web de validación dinámica, renderizado de datos mediante Fetch y anuncios accesibles con ARIA, todo organizado bajo una arquitectura tipo MVC de acuerdo con la lógica del proyecto a lo largo del curso. La documentación técnica correspondiente ha sido generada. Con lo desarrollado hasta este punto realizaremos el commit y push de esta segunda entrega.
