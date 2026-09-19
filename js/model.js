@@ -9,7 +9,7 @@ const IncidentModel = (() => {
 
   async function loadIncidents() {
     try {
-      const response = await fetch("data/incidents.json");
+      const response = await fetch("/api/incidentes");
       if (!response.ok) throw new Error("No se pudo cargar el archivo de incidentes");
       incidents = await response.json();
       return incidents;

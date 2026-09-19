@@ -1,0 +1,9 @@
+{
+  "name": "dbp-incidentes",
+  "version": "1.0.0",
+  "description": "Plataforma de gestión de incidentes - Desarrollo Basado en Plataformas",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node app.js"
+  }
+}
