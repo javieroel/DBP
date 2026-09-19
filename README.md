@@ -125,4 +125,55 @@ En esta segunda entrega hemos incorporado JavaScript al esqueleto desarrollado e
 
 ___
 
+## Instrucciones T1S3
+
+Elabore un documento técnico breve y un prototipo mínimo que demuestre el flujo cliente-servidor. Debe incluir diagrama de componentes, roles, arquitectura n-capas, explicación de peticiones HTTP y un servidor básico Node.js que responda una ruta JSON.
+
+## Enfoques de la mejora
+
+* **Concepto de plataforma digital y componentes:** hasta la semana pasada, el proyecto funcionaba únicamente con Live Server, es decir, un servidor de archivos estáticos sin ninguna lógica detrás. Esta semana el objetivo fue incorporar un servidor propio construido con Node.js, que es lo que realmente convierte al proyecto en una plataforma con componentes diferenciados: cliente, servidor y datos, cada uno con su rol específico.
+
+* **Servidor Node.js con módulo http nativo:** se creó el archivo app.js en la raíz del proyecto, usando únicamente el módulo http de Node (sin frameworks todavía, eso queda para la siguiente semana con Express). Este servidor es el que ahora sirve index.html, styles.css y los tres módulos de JavaScript, cumpliendo la misma función que antes hacía Live Server, pero de forma propia.
+
+* **Servicios expuestos (rutas de la API):** se agregaron dos rutas nuevas: /api/salud, que simplemente confirma que el servidor está activo, y /api/incidentes, que lee el archivo data/incidents.json desde el servidor y lo entrega como respuesta. Estas rutas son los "servicios" de la plataforma: contratos claros mediante los cuales el cliente puede pedir información.
+
+**Api de salud de la plataforma**
+
+<p align="center">
+    <img src="assets/repo_images/api_salud.png" alt="ruta salud" style="width: 350px; height: 150px;">
+</p>
+
+**Api de incidentes registrados**
+
+<p align="center">
+    <img src="assets/repo_images/api_incidentes.png" alt="ruta incidentes" style="width: 550px; height: 400px;">
+</p>
+
+* **Cambio en el cliente (model.js):** el único ajuste necesario en el código que ya teníamos fue en model.js. Antes, loadIncidents() hacía fetch("data/incidents.json"), leyendo el archivo de forma directa. Ahora hace fetch("/api/incidentes"), pidiéndoselo al servidor en lugar de acceder al archivo directamente. view.js y controller.js no necesitaron ningún cambio, ya que no les importa de dónde vienen los datos, solo qué hacer con ellos una vez que llegan.
+
+* **Arquitectura n-capas:** con el servidor ya en su lugar, el proyecto quedó organizado en tres capas claramente separadas: la capa de presentación (HTML, CSS y los archivos JS del cliente), la capa de lógica (app.js, que decide qué responder a cada petición) y la capa de datos (incidents.json). Como refuerzo de esta separación, el servidor bloquea el acceso directo a cualquier archivo dentro de la carpeta data, de modo que la única forma de obtener los incidentes es a través de la ruta /api/incidentes, nunca leyendo el archivo JSON de manera directa desde el navegador.
+
+<p align="center">
+    <img src="assets/repo_images/arq_ncapas.png" alt="arquitectura n-capas" style="width: 250px; height: 300px;">
+</p>
+
+**Acceso bloqueado a la carpeta de "data"**
+
+<p align="center">
+    <img src="assets/repo_images/bloqueo_acceso.png" alt="acceso bloqueado a data" style="width: 500px; height: 250px;">
+</p>
+
+* **Peticiones HTTP:** todas las comunicaciones entre el cliente y el servidor se hacen mediante el método GET del protocolo HTTP. Cada respuesta incluye un código de estado: 200 cuando todo sale bien, y 404 cuando la ruta solicitada no existe o no está disponible (como es el caso del acceso directo a data). Se probó también una ruta inexistente para confirmar que el servidor responde con un error controlado en lugar de fallar.
+
+<p align="center">
+    <img src="assets/repo_images/404_controlado.png" alt="error 404 controlado" style="width: 900px; height: 200px;">
+</p>
+
+Es importante aclarar que esta semana el alcance fue únicamente demostrar el flujo cliente-servidor con peticiones GET. El formulario de registro sigue funcionando igual que en la entrega anterior: guarda el incidente en la memoria del navegador, pero no hay persistencia real todavía, ya que eso corresponde a la incorporación de Express y las rutas CRUD en la siguiente semana.
+
+## ENTREGA T1S3
+
+En esta tercera entrega incorporamos un servidor Node.js real al proyecto, reemplazando la función que antes cumplía Live Server. Se expusieron rutas de servicio (/api/salud y /api/incidentes), se reforzó la separación en arquitectura de n-capas restringiendo el acceso directo a los datos, y se documentó el flujo completo de peticiones HTTP entre el cliente y el servidor. La documentación técnica correspondiente ha sido generada. Con lo desarrollado hasta este punto realizaremos el commit y push de esta tercera entrega.
+___
+
 

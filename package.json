@@ -4,6 +4,6 @@
   "description": "Plataforma de gestión de incidentes - Desarrollo Basado en Plataformas",
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node app.js"
   }
 }
