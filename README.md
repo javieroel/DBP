@@ -176,4 +176,98 @@ Es importante aclarar que esta semana el alcance fue únicamente demostrar el fl
 En esta tercera entrega incorporamos un servidor Node.js real al proyecto, reemplazando la función que antes cumplía Live Server. Se expusieron rutas de servicio (/api/salud y /api/incidentes), se reforzó la separación en arquitectura de n-capas restringiendo el acceso directo a los datos, y se documentó el flujo completo de peticiones HTTP entre el cliente y el servidor. La documentación técnica correspondiente ha sido generada. Con lo desarrollado hasta este punto realizaremos el commit y push de esta tercera entrega.
 ___
 
+## Instrucciones T1S4
 
+Implemente una API REST inicial para incidentes con Express y un front-end que consuma sus datos. Debe incluir rutas CRUD básicas, controladores, modelo en memoria, middleware de registro, manejo de errores y una interfaz que liste, filtre o cree incidentes mediante Fetch.
+
+## Enfoques de mejora
+
+Migración a Express.js: Se sustituyó el módulo http nativo por el framework Express.js, facilitando el enrutamiento modular, el procesamiento de cuerpos JSON mediante middleware nativo (express.json()) y el servicio de archivos estáticos (express.static).
+
+Implementación de Rutas CRUD y Controladores: Se definieron endpoints RESTful completos para la entidad de incidentes (/api/incidentes):
+
+- GET /api/incidentes: Obtención y filtrado de incidentes (por categoría, prioridad o estado).
+
+- GET /api/incidentes/:id: Obtención del detalle de un incidente por identificador único.
+
+- POST /api/incidentes: Creación de un nuevo incidente con asignación automática de ID y fecha.
+
+- PUT /api/incidentes/:id: Actualización completa de la información de un incidente existente.
+
+- DELETE /api/incidentes/:id: Eliminación física/lógica de un incidente por su ID.
+
+**Modelo en Memoria:** Los incidentes se administran temporalmente en un arreglo de JavaScript en memoria inicializado a partir del archivo JSON, permitiendo mutaciones en tiempo de ejecución (crear, editar, eliminar) dentro de la sesión del servidor.
+
+**Middlewares Personalizados:**
+
+Middleware de Registro (Logger): Intercepta cada solicitud entrante imprimiendo en consola el método HTTP, la URL y la marca de tiempo.
+
+Middleware de Manejo de Errores: Captura excepciones no controladas y devuelve respuestas JSON con código 500 Internal Server Error o validaciones de formato (400 Bad Request).
+
+Integración con la Interfaz (Fetch API): El cliente consume dinámicamente los endpoints REST usando fetch(), permitiendo listar incidentes en tiempo real, aplicar filtros de búsqueda desde la interfaz y enviar nuevos registros sin recargar la página.
+
+**Pruebas de endpoints CRUD con cliente HTTP: **
+
+Aqui hicimos el ingreso de un incidente nuevamente para comprobar que el registro de hace a traves de una peticion al servidor.
+
+<p align="center">
+    <img src="assets/repo_images/peticionPost.png" alt="datos peticion post" style="width: 600px; height: 700px;">
+</p>
+
+Comprobamos que el registro se realizo con una peticion de tipo POST al servidor para luego solicitar refrescar la lista que se mostraria en la pagina utilizado otra peticion, esta vez de tipo GET.
+
+<p align="center">
+    <img src="assets/repo_images/respeticionpost.png" alt="respuesta peticion post" style="width: 600px; height: 60px;">
+</p>
+
+Asi mismo se implementaron filtros para, a traves de una peticion de tipo GET, encontrar los incidentes almacenados en el archiso de incidentes.json
+
+<p align="center">
+    <img src="assets/repo_images/peticionFiltro.png" alt="Peticion filtro" style="width: 600px; height: 20px;">
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/busquedafiltro.png" alt="Busqueda filtro" style="width: 600px; height: 250px;">
+</p>
+
+Tomar en consideracion que el hecho de que no se haya encontrado el incidente a traves del filtro, el mensaje 200 nos asegura que la peticion http se realizo de manera correcta.
+
+A continuacion se evidencia la implementacion de lectura en el archivo model.js
+
+```javascript
+async function loadIncidents(filters = {}) {
+  // Construye la URL con Query Parameters (ej: /api/incidentes?q=camara) como en el ejemplo anterior
+  const queryParams = new URLSearchParams(filters).toString();
+  const url = queryParams ? `/api/incidentes?${queryParams}` : '/api/incidentes';
+
+  // Consumo asíncrono de la API REST
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Error al cargar incidentes');
+  
+  return await response.json(); // Convierte la respuesta JSON en objetos JS
+}
+```
+
+Y tambien la integracion de la escritura utilizando POST
+
+```javascript
+async function createIncident(data) {
+  const response = await fetch('/api/incidentes', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json' // Indica al backend que envía un JSON
+    },
+    body: JSON.stringify(data) // Transforma el objeto JS a cadena JSON
+  });
+
+  if (!response.ok) throw new Error('Error al registrar el incidente');
+  return await response.json(); // Retorna el incidente creado con su ID
+}
+```
+Tenemos tambien una simple implementacion de actualizacion utilizando peticiones PUT/PATCH con la posibilidad de cambiar el estado del ultimo ticket
+
+## ENTREGA T1S4
+
+En esta cuarta entrega consolidamos la integración entre el cliente web y el backend Express mediante una API RESTful completa. Se implementaron las peticiones asíncronas (GET, POST) utilizando Fetch API bajo el patrón MVC, asegurando el refresco dinámico de datos sin recargar la página. Además, se integraron middlewares de registro para auditoría de tráfico y control centralizado de errores, garantizando respuestas JSON con códigos HTTP adecuados (201, 200, 404). Se completó la modularización del proyecto respaldada por package.json y el control de versiones. Con lo desarrollado hasta este punto realizaremos el commit y push de esta cuarta entrega.
+
+___

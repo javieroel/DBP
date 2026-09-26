@@ -290,6 +290,22 @@ small {
   margin-top: 28px;
 }
 
+.filter-bar {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr auto;
+  gap: 10px;
+  margin: -8px 0 18px;
+}
+
+.empty-state {
+  margin: 0;
+  padding: 18px;
+  color: var(--muted);
+  background: #fbfcfc;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+}
+
 .incident-list {
   display: grid;
   gap: 12px;
@@ -482,7 +498,8 @@ small {
     padding: 22px;
   }
 
-  .form-grid {
+  .form-grid,
+  .filter-bar {
     grid-template-columns: 1fr;
   }
 

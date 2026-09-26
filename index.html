@@ -74,7 +74,7 @@
                 <label for="description">Descripción</label>
                 <textarea id="description" name="description" rows="5" minlength="20" maxlength="500" required placeholder="Explica qué ocurrió, cuándo ocurrió y qué intentaste hacer."></textarea>
                 <small id="description-help">Incluye la información necesaria para reproducir el incidente.</small>
-                  <small id="category-error" class="field-error" hidden></small>
+                <small id="description-error" class="field-error" hidden></small>
               </div>
 
               <div class="form-field">
@@ -104,8 +104,27 @@
               <p class="eyebrow">Seguimiento</p>
               <h2 id="list-title">Incidentes recientes</h2>
             </div>
-            <span class="record-count" id="record-count">3 registros</span>
+            <span class="record-count" id="record-count">0 registros</span>
           </div>
+          <form class="filter-bar" id="filter-form">
+            <label class="sr-only" for="filter-q">Buscar incidente</label>
+            <input id="filter-q" name="q" type="search" placeholder="Buscar por título, id o descripción">
+            <label class="sr-only" for="filter-status">Filtrar por estado</label>
+            <select id="filter-status" name="status">
+              <option value="">Todos los estados</option>
+              <option value="open">Abierto</option>
+              <option value="progress">En revisión</option>
+              <option value="closed">Resuelto</option>
+            </select>
+            <label class="sr-only" for="filter-priority">Filtrar por prioridad</label>
+            <select id="filter-priority" name="priority">
+              <option value="">Todas las prioridades</option>
+              <option value="alta">Alta</option>
+              <option value="media">Media</option>
+              <option value="baja">Baja</option>
+            </select>
+            <button class="button button-secondary" type="submit">Filtrar</button>
+          </form>
           <div class="incident-list" id="incident-list"></div>
         </section>
       </div>

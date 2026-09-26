@@ -7,17 +7,37 @@ const IncidentModel = (() => {
     closed: "Resuelto"
   };
 
-  async function loadIncidents() {
+  const nextStatus = {
+    open: "progress",
+    progress: "closed",
+    closed: "open"
+  };
+
+  async function parseError(response, fallback) {
     try {
-      const response = await fetch("/api/incidentes");
-      if (!response.ok) throw new Error("No se pudo cargar el archivo de incidentes");
-      incidents = await response.json();
-      return incidents;
+      const payload = await response.json();
+      return payload.error || fallback;
     } catch (error) {
-      console.error("Error al cargar incidentes:", error);
-      incidents = [];
-      throw error;
+      return fallback;
     }
+  }
+
+  function buildQuery(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  }
+
+  async function loadIncidents(filters = {}) {
+    const response = await fetch(`/api/incidentes${buildQuery(filters)}`);
+    if (!response.ok) {
+      throw new Error(await parseError(response, "No se pudieron cargar los incidentes"));
+    }
+    incidents = await response.json();
+    return incidents;
   }
 
   function getAll() {
@@ -28,30 +48,48 @@ const IncidentModel = (() => {
     return incidents.find((item) => item.id === id) || null;
   }
 
-  function addIncident(data) {
-    const nextNumber = incidents.length
-      ? Math.max(...incidents.map((i) => parseInt(i.id.split("-")[1], 10))) + 1
-      : 1;
-    const newIncident = {
-      id: `INC-${String(nextNumber).padStart(3, "0")}`,
-      title: data.title,
-      description: data.description,
-      category: data.category,
-      priority: data.priority,
-      date: data.date,
-      status: "open",
-      reporter: data.email,
-      area: "Sin asignar"
-    };
-    incidents.unshift(newIncident);
-    return newIncident;
+  async function createIncident(data) {
+    const response = await fetch("/api/incidentes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        priority: data.priority,
+        date: data.date,
+        reporter: data.email
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseError(response, "No se pudo registrar el incidente"));
+    }
+
+    return response.json();
+  }
+
+  async function updateIncident(id, payload) {
+    const response = await fetch(`/api/incidentes/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseError(response, "No se pudo actualizar el incidente"));
+    }
+
+    return response.json();
   }
 
   return {
     loadIncidents,
     getAll,
     getById,
-    addIncident,
-    statusLabels
+    createIncident,
+    updateIncident,
+    statusLabels,
+    nextStatus
   };
 })();

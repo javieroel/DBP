@@ -22,6 +22,11 @@ const IncidentView = (() => {
     listEl.innerHTML = "";
     countEl.textContent = `${incidents.length} registro${incidents.length !== 1 ? "s" : ""}`;
 
+    if (!incidents.length) {
+      listEl.innerHTML = `<p class="empty-state">No hay incidentes para los filtros seleccionados.</p>`;
+      return;
+    }
+
     incidents.forEach((incident) => {
       const article = document.createElement("article");
       article.className = "incident-item";
@@ -66,7 +71,7 @@ const IncidentView = (() => {
         <h3>Descripción</h3>
         <p>${incident.description}</p>
       </div>
-      <button class="button button-secondary button-full" type="button">Actualizar estado</button>
+      <button class="button button-secondary button-full" type="button" data-action="update-status" data-id="${incident.id}">Actualizar estado</button>
     `;
   }
 
