@@ -313,12 +313,10 @@ src/middleware/asyncHandler.js  envía los errores async al manejador central
 - Los errores no revelan SQL ni el stack trace al cliente; el detalle queda en el log.
 - `express.json({ limit: "10kb" })` y `x-powered-by` desactivado.
 
-## Cómo ejecutar
-
-### Opción A: PC con Docker Desktop (desarrollo)
+## Cómo ejecutar en desarrollo (PC con Docker Desktop)
 
 ```bash
-cp .env.example .env          # en Windows: copy .env.example .env  (y cambiar DB_PASSWORD)
+cp .env.example .env          # y cambiar DB_PASSWORD
 docker compose up -d db adminer
 npm install
 npm run db:migrate            # crea la tabla
@@ -327,29 +325,117 @@ npm start                     # http://localhost:3000
 npm run probar                # en otra terminal: ejecuta las 23 pruebas
 ```
 
-Adminer (ver la base): http://localhost:8080 → Sistema *PostgreSQL*, Servidor `db`, usuario/clave/base del `.env`.
+## Despliegue en el servidor Ubuntu con Docker
 
-### Opción B: Ubuntu Server (todo en contenedores)
+El servidor se usaba originalmente como NAS de un proyecto de homelab, para guardar archivos e imágenes con Immich. Ahora también aloja la plataforma de incidentes. Docker Compose la levanta con una red y un volumen propios, así que las dos bases PostgreSQL conviven en el mismo equipo sin compartir datos ni credenciales.
+
+### 1. Publicación del código (PC, Git Bash)
 
 ```bash
-# en el servidor (una sola vez)
-sudo apt update && sudo apt install -y docker.io docker-compose-v2 git
-sudo usermod -aG docker $USER   # cerrar sesión y volver a entrar
+git add .
+git commit -m "Quinta entrega: persistencia con PostgreSQL, Sequelize, migraciones y Docker"
+git push origin main
+```
 
+### 2. Acceso y verificación del servidor
+
+Se accedió por SSH y se comprobó que Docker y Docker Compose ya estaban instalados. Luego se actualizó el sistema.
+
+```bash
+ssh usuario@IP_DEL_SERVIDOR
+lsb_release -a
+docker --version && docker compose version
+sudo apt update && sudo apt upgrade -y
+```
+
+<p align="center">
+    <img src="assets/repo_images/servidor_ubuntu_docker.png" alt="Terminal SSH con Ubuntu Server 26.04, Docker 29.7.2, Docker Compose v5.6.0 y los contenedores de Immich que ya corrían en el NAS" style="width: 700px;">
+</p>
+
+### 3. Proyecto y variables de entorno
+
+Se clonó el repositorio y se creó un `.env` exclusivo del servidor, con una contraseña aleatoria distinta a la de desarrollo y permisos de lectura solo para el propietario.
+
+```bash
 git clone https://github.com/javieroel/DBP.git && cd DBP
-cp .env.example .env && nano .env      # poner una clave fuerte
-docker compose --profile full up -d --build   # base + adminer + API (migra al arrancar)
-docker compose exec app npx sequelize-cli db:seed:all
-docker compose logs -f app
+cp .env.example .env
+sed -i "s/cambie_esta_clave/$(openssl rand -hex 24)/" .env
+chmod 600 .env
+grep -v PASSWORD .env
 ```
 
-La API queda en `http://IP_DEL_SERVIDOR:3000`. La base y Adminer solo escuchan en el propio servidor; para ver Adminer desde la PC se usa un túnel SSH:
+<p align="center">
+    <img src="assets/repo_images/env_servidor_sin_clave.png" alt="Archivo .env del servidor mostrado sin la línea de la contraseña" style="width: 700px;">
+</p>
+
+### 4. Contenedores y migraciones
+
+Con un solo comando se levantaron PostgreSQL, Adminer y la API. La base y Adminer solo escuchan en `127.0.0.1`, así que únicamente la API (puerto 3000) es accesible desde la red. Al arrancar, la API aplicó las migraciones y se conectó a PostgreSQL.
 
 ```bash
-ssh -L 8080:localhost:8080 usuario@IP_DEL_SERVIDOR    # luego abrir http://localhost:8080
+docker compose --profile full up -d --build
+docker compose ps
+docker compose logs app
 ```
 
-Si el servidor usa firewall: `sudo ufw allow 3000/tcp` (no abrir 5432).
+<p align="center">
+    <img src="assets/repo_images/construccion_contenedores.png" alt="Salida de docker compose up --build: descarga de postgres y adminer, construcción de la imagen dbp-app y creación de la red, el volumen dbp_pgdata y los contenedores" style="width: 700px;">
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/contenedores_y_migraciones.png" alt="docker compose ps: PostgreSQL y Adminer publicados solo en 127.0.0.1 y la API en 0.0.0.0:3000; el log de la API indica que el esquema ya estaba al día según las migraciones y que se conectó a PostgreSQL" style="width: 700px;">
+</p>
+
+### 5. Datos de ejemplo y verificación de la base
+
+```bash
+docker compose exec app npx sequelize-cli db:seed:all
+docker compose exec db psql -U incidentes_app -d incidentes_db -c "\d incidents"
+```
+
+<p align="center">
+    <img src="assets/repo_images/estructura_tabla_incidents.png" alt="Seeder ejecutado y salida de psql con las columnas de la tabla incidents, sus índices, las restricciones CHECK y los 4 registros iniciales" style="width: 700px;">
+</p>
+
+### 6. Registro desde la interfaz
+
+Desde el navegador del PC (`http://IP_DEL_SERVIDOR:3000`) se registró el incidente INC-005. La API respondió `201 Created` y el estado "Abierto" lo asignó la base por defecto.
+
+<p align="center">
+    <img src="assets/repo_images/incidente_inc005_creado.png" alt="Tarjeta del incidente INC-005, Escaneo de puertos detectado en servidor web, con estado Abierto" style="width: 700px;">
+</p>
+
+### 7. Prueba de persistencia
+
+Se eliminaron los contenedores y se volvieron a crear. El volumen `dbp_pgdata` se conservó, y con él el incidente INC-005.
+
+```bash
+docker compose --profile full down
+docker volume ls | grep pgdata
+docker compose --profile full up -d
+docker compose exec db psql -U incidentes_app -d incidentes_db -c "SELECT id, title, status, priority FROM incidents ORDER BY id;"
+```
+
+<p align="center">
+    <img src="assets/repo_images/persistencia_tras_recrear_contenedores.png" alt="Contenedores eliminados y recreados; la consulta SELECT sigue mostrando los 5 incidentes, incluido INC-005" style="width: 700px;">
+</p>
+
+### 8. Pruebas de la API y manejo de errores
+
+```bash
+API_URL=http://IP_DEL_SERVIDOR:3000 npm run probar    # desde el PC
+docker compose stop db                                # en el servidor
+curl -i http://localhost:3000/api/salud               # responde 503
+docker compose start db
+```
+
+<p align="center">
+    <img src="assets/repo_images/pruebas_api_servidor.png" alt="Resultado del script de pruebas: 23 de 23 casos con el código HTTP esperado contra el servidor" style="width: 700px;">
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/salud_503_bd_detenida.png" alt="Respuesta HTTP 503 de /api/salud con la base de datos detenida" style="width: 700px;">
+</p>
 
 ### Comandos útiles de migraciones
 
@@ -359,8 +445,10 @@ npm run db:migrate:undo       # revierte la última
 npm run db:reset              # revierte todo, migra y siembra de nuevo
 ```
 
+> Importante: `docker compose down -v` borra también el volumen con los datos.
+
 ## ENTREGA T1S5
 
-En esta quinta entrega se reemplazó el modelo en memoria por PostgreSQL ejecutándose en Docker, accedido mediante el ORM Sequelize. Se definió el modelo `Incident` con validaciones, dos migraciones versionadas, un seeder, CRUD persistente con filtros por estado y prioridad, conexión configurada por variables de entorno y un manejador central que traduce cada excepción a su código HTTP. El script `npm run probar` verifica 23 casos correctos, de error y de seguridad.
+En esta quinta entrega se reemplazó el modelo en memoria por PostgreSQL ejecutándose en Docker, accedido mediante el ORM Sequelize. Se definió el modelo `Incident` con validaciones, dos migraciones versionadas, un seeder, CRUD persistente con filtros por estado y prioridad, conexión configurada por variables de entorno y un manejador central que traduce cada excepción a su código HTTP. La plataforma se desplegó con Docker en el servidor Ubuntu del homelab y se comprobó que los datos persisten al recrear los contenedores. Con lo desarrollado hasta este punto realizaremos el commit y push de esta quinta entrega.
 
 ___
