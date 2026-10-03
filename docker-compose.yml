@@ -1,0 +1,52 @@
+# Servicios Docker del proyecto.
+#   Desarrollo (PC con Docker Desktop):   docker compose up -d db adminer
+#   Todo en contenedores (Ubuntu Server): docker compose --profile full up -d --build
+# Las credenciales se leen del archivo .env (no se escriben aquí).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: incidentes_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      # Solo escucha en 127.0.0.1: la base NO queda expuesta a la red.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data # los datos sobreviven si el contenedor se borra
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  adminer:
+    # Interfaz web para ver la base (capturas de tablas y datos)
+    image: adminer:4
+    container_name: incidentes_adminer
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  app:
+    profiles: ["full"]
+    build: .
+    container_name: incidentes_api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db # dentro de la red de Docker la base se llama "db"
+      DB_PORT: 5432
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+volumes:
+  pgdata:

@@ -16,6 +16,10 @@ const IncidentModel = (() => {
   async function parseError(response, fallback) {
     try {
       const payload = await response.json();
+      // Si la API devuelve detalles de validación, se muestran todos
+      if (Array.isArray(payload.detalles) && payload.detalles.length) {
+        return `${payload.error} ${payload.detalles.map((d) => d.mensaje).join(" ")}`;
+      }
       return payload.error || fallback;
     } catch (error) {
       return fallback;

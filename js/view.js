@@ -7,6 +7,18 @@ const IncidentView = (() => {
   const priorityLabels = { alta: "Prioridad alta", media: "Prioridad media", baja: "Prioridad baja" };
   const categoryLabels = { acceso: "Acceso", sistema: "Sistema", red: "Red", otro: "Otro" };
 
+  // Seguridad: los datos ahora se GUARDAN en la base. Si alguien registra
+  // "<script>...</script>" como título, sin escapar se ejecutaría en el navegador
+  // de cada persona que abra la lista (XSS almacenado). escapeHtml lo convierte en texto.
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function badgeClass(status) {
     if (status === "progress") return "badge-progress";
     if (status === "open") return "badge-open";
@@ -37,14 +49,14 @@ const IncidentView = (() => {
 
       article.innerHTML = `
         <div class="incident-item-topline">
-          <span class="incident-id">${incident.id}</span>
+          <span class="incident-id">${escapeHtml(incident.id)}</span>
           <span class="badge ${badgeClass(incident.status)}">${statusLabels[incident.status]}</span>
         </div>
-        <h3>${incident.title}</h3>
-        <p>${incident.description}</p>
+        <h3>${escapeHtml(incident.title)}</h3>
+        <p>${escapeHtml(incident.description)}</p>
         <div class="incident-meta">
-          <span>${categoryLabels[incident.category] || incident.category}</span>
-          <span>${priorityLabels[incident.priority] || incident.priority}</span>
+          <span>${escapeHtml(categoryLabels[incident.category] || incident.category)}</span>
+          <span>${escapeHtml(priorityLabels[incident.priority] || incident.priority)}</span>
           <span>${formatDate(incident.date)}</span>
         </div>
       `;
@@ -59,19 +71,19 @@ const IncidentView = (() => {
     }
     detailEl.innerHTML = `
       <p class="eyebrow">Detalle del último ticket</p>
-      <h2>${incident.id}</h2>
-      <p class="detail-title">${incident.title}</p>
+      <h2>${escapeHtml(incident.id)}</h2>
+      <p class="detail-title">${escapeHtml(incident.title)}</p>
       <dl class="detail-list">
         <div><dt>Estado</dt><dd><span class="badge ${badgeClass(incident.status)}">${statusLabels[incident.status]}</span></dd></div>
-        <div><dt>Reportado por</dt><dd>${incident.reporter}</dd></div>
+        <div><dt>Reportado por</dt><dd>${escapeHtml(incident.reporter)}</dd></div>
         <div><dt>Fecha</dt><dd>${formatDate(incident.date)}</dd></div>
-        <div><dt>Área</dt><dd>${incident.area}</dd></div>
+        <div><dt>Área</dt><dd>${escapeHtml(incident.area)}</dd></div>
       </dl>
       <div class="detail-description">
         <h3>Descripción</h3>
-        <p>${incident.description}</p>
+        <p>${escapeHtml(incident.description)}</p>
       </div>
-      <button class="button button-secondary button-full" type="button" data-action="update-status" data-id="${incident.id}">Actualizar estado</button>
+      <button class="button button-secondary button-full" type="button" data-action="update-status" data-id="${escapeHtml(incident.id)}">Actualizar estado</button>
     `;
   }
 

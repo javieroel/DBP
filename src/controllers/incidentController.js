@@ -1,137 +1,96 @@
+// CONTROLADOR: recibe la petición HTTP, valida lo que llega por URL,
+// llama al modelo (que habla con la base) y responde con el código HTTP adecuado.
+// Ya no tiene try/catch: cualquier excepción viaja al manejador central de errores.
 const incidentModel = require("../models/incidentModel");
 const HttpError = require("../middleware/httpError");
+const asyncHandler = require("../middleware/asyncHandler");
 
-function isValidDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+// Acepta "INC-025" o "25" y devuelve el número 25. Si no, error 400.
+function parseId(raw) {
+  const match = /^(?:INC-)?(\d{1,9})$/i.exec(String(raw));
+  if (!match) {
+    throw new HttpError(400, `El identificador "${raw}" no tiene el formato INC-###.`);
+  }
+  return Number(match[1]);
 }
 
-function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
+// Revisa los filtros de la URL antes de enviarlos a la base.
+function parseFilters(query) {
+  const filters = {};
+  const checks = [
+    ["status", incidentModel.ALLOWED_STATUS, "estado"],
+    ["priority", incidentModel.ALLOWED_PRIORITY, "prioridad"],
+    ["category", incidentModel.ALLOWED_CATEGORY, "categoría"]
+  ];
 
-function validatePayload(data, { partial = false } = {}) {
-  const errors = [];
-
-  if (!partial || data.title !== undefined) {
-    if (!data.title || String(data.title).trim().length < 5) {
-      errors.push("El título debe tener al menos 5 caracteres.");
+  checks.forEach(([key, allowed, label]) => {
+    const value = (query[key] || "").trim();
+    if (!value) return;
+    if (!allowed.includes(value)) {
+      throw new HttpError(400, `Filtro de ${label} no válido. Use: ${allowed.join(", ")}.`);
     }
-  }
-
-  if (!partial || data.description !== undefined) {
-    if (!data.description || String(data.description).trim().length < 20) {
-      errors.push("La descripción debe tener al menos 20 caracteres.");
-    }
-  }
-
-  if (!partial || data.category !== undefined) {
-    if (!incidentModel.ALLOWED_CATEGORY.includes(data.category)) {
-      errors.push("La categoría no es válida.");
-    }
-  }
-
-  if (!partial || data.priority !== undefined) {
-    if (!incidentModel.ALLOWED_PRIORITY.includes(data.priority)) {
-      errors.push("La prioridad no es válida.");
-    }
-  }
-
-  if (!partial || data.date !== undefined) {
-    if (!data.date || !isValidDate(data.date)) {
-      errors.push("La fecha debe tener el formato YYYY-MM-DD.");
-    }
-  }
-
-  if (!partial || data.reporter !== undefined) {
-    if (!data.reporter || !isValidEmail(data.reporter)) {
-      errors.push("El correo de contacto no es válido.");
-    }
-  }
-
-  if (data.status !== undefined && !incidentModel.ALLOWED_STATUS.includes(data.status)) {
-    errors.push("El estado no es válido.");
-  }
-
-  return errors;
-}
-
-function listIncidents(req, res) {
-  const incidents = incidentModel.getAll({
-    status: req.query.status,
-    priority: req.query.priority,
-    category: req.query.category,
-    q: req.query.q
+    filters[key] = value;
   });
-  res.json(incidents);
+
+  const q = (query.q || "").trim();
+  if (q.length > 100) throw new HttpError(400, "La búsqueda no puede superar 100 caracteres.");
+  if (q) filters.q = q;
+
+  // Paginación opcional con tope para evitar respuestas gigantes
+  const limit = query.limit !== undefined ? Number(query.limit) : 100;
+  const offset = query.offset !== undefined ? Number(query.offset) : 0;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new HttpError(400, "limit debe ser un entero entre 1 y 100.");
+  }
+  if (!Number.isInteger(offset) || offset < 0) {
+    throw new HttpError(400, "offset debe ser un entero mayor o igual a 0.");
+  }
+  filters.limit = limit;
+  filters.offset = offset;
+  return filters;
 }
 
-function getIncident(req, res, next) {
-  const incident = incidentModel.getById(req.params.id);
-  if (!incident) {
-    return next(new HttpError(404, `No existe el incidente ${req.params.id}`));
+function bodyWithReporter(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new HttpError(400, "El cuerpo de la petición debe ser un objeto JSON.");
   }
+  // El formulario envía "email"; la base guarda "reporter"
+  return { ...body, reporter: body.reporter !== undefined ? body.reporter : body.email };
+}
+
+// GET /api/incidentes?status=open&priority=alta
+const listIncidents = asyncHandler(async (req, res) => {
+  const incidents = await incidentModel.getAll(parseFilters(req.query));
+  res.json(incidents); // 200 OK
+});
+
+// GET /api/incidentes/:id
+const getIncident = asyncHandler(async (req, res) => {
+  const incident = await incidentModel.getById(parseId(req.params.id));
+  if (!incident) throw new HttpError(404, `No existe el incidente ${req.params.id}`);
   res.json(incident);
-}
+});
 
-function createIncident(req, res, next) {
-  const payload = {
-    title: req.body.title,
-    description: req.body.description,
-    category: req.body.category,
-    priority: req.body.priority,
-    date: req.body.date,
-    reporter: req.body.reporter || req.body.email,
-    status: req.body.status,
-    area: req.body.area
-  };
+// POST /api/incidentes
+const createIncident = asyncHandler(async (req, res) => {
+  const created = await incidentModel.create(bodyWithReporter(req.body));
+  res.status(201).location(`/api/incidentes/${created.toJSON().id}`).json(created); // 201 Created
+});
 
-  const errors = validatePayload(payload);
-  if (errors.length) {
-    return next(new HttpError(400, errors.join(" ")));
-  }
-
-  const created = incidentModel.create({
-    ...payload,
-    title: String(payload.title).trim(),
-    description: String(payload.description).trim(),
-    reporter: String(payload.reporter).trim()
-  });
-  res.status(201).json(created);
-}
-
-function updateIncident(req, res, next) {
-  const current = incidentModel.getById(req.params.id);
-  if (!current) {
-    return next(new HttpError(404, `No existe el incidente ${req.params.id}`));
-  }
-
-  const payload = {
-    title: req.body.title,
-    description: req.body.description,
-    category: req.body.category,
-    priority: req.body.priority,
-    date: req.body.date,
-    reporter: req.body.reporter || req.body.email,
-    status: req.body.status,
-    area: req.body.area
-  };
-
-  const errors = validatePayload(payload, { partial: true });
-  if (errors.length) {
-    return next(new HttpError(400, errors.join(" ")));
-  }
-
-  const updated = incidentModel.update(req.params.id, payload);
+// PUT /api/incidentes/:id
+const updateIncident = asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  const updated = await incidentModel.update(id, bodyWithReporter(req.body));
+  if (!updated) throw new HttpError(404, `No existe el incidente ${req.params.id}`);
   res.json(updated);
-}
+});
 
-function deleteIncident(req, res, next) {
-  const removed = incidentModel.remove(req.params.id);
-  if (!removed) {
-    return next(new HttpError(404, `No existe el incidente ${req.params.id}`));
-  }
-  res.status(204).send();
-}
+// DELETE /api/incidentes/:id
+const deleteIncident = asyncHandler(async (req, res) => {
+  const removed = await incidentModel.remove(parseId(req.params.id));
+  if (!removed) throw new HttpError(404, `No existe el incidente ${req.params.id}`);
+  res.status(204).send(); // 204 No Content
+});
 
 module.exports = {
   listIncidents,

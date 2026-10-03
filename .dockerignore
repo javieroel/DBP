@@ -1,0 +1,6 @@
+node_modules
+.env
+.git
+*.zip
+assets/repo_images
+_dbp_src.tgz

@@ -271,3 +271,96 @@ Tenemos tambien una simple implementacion de actualizacion utilizando peticiones
 En esta cuarta entrega consolidamos la integración entre el cliente web y el backend Express mediante una API RESTful completa. Se implementaron las peticiones asíncronas (GET, POST) utilizando Fetch API bajo el patrón MVC, asegurando el refresco dinámico de datos sin recargar la página. Además, se integraron middlewares de registro para auditoría de tráfico y control centralizado de errores, garantizando respuestas JSON con códigos HTTP adecuados (201, 200, 404). Se completó la modularización del proyecto respaldada por package.json y el control de versiones. Con lo desarrollado hasta este punto realizaremos el commit y push de esta cuarta entrega.
 
 ___
+## Instrucciones T1S5
+
+Amplíe la plataforma de incidentes del Reto 2. Reemplace el almacenamiento en memoria por una base de datos. Implemente conexión segura mediante variables de entorno, un modelo de Incidente, migraciones, CRUD persistente, filtros por estado o prioridad, validaciones y manejo central de excepciones. Pruebe los casos correctos y los errores. Entregue el código, el esquema, las migraciones, capturas de la base y un informe de 700 a 900 palabras que explique sus decisiones.
+
+## Enfoques de mejora
+
+**Base de datos elegida:** PostgreSQL 16 (SQL) ejecutándose en Docker, con el ORM **Sequelize**. Los incidentes tienen una estructura fija (título, prioridad, estado...), por eso un modelo relacional con restricciones es más adecuado que uno NoSQL de documentos.
+
+| Antes (T1S4) | Ahora (T1S5) |
+|---|---|
+| Arreglo en memoria: se pierde al reiniciar | Tabla `incidents` en PostgreSQL: los datos persisten |
+| Validación manual en el controlador | Validaciones en el modelo ORM + restricciones `CHECK` en la base |
+| Funciones síncronas | Funciones `async/await` (la base responde por red) |
+| Errores 400/404/500 | Manejo central: 400, 404, 409, 413, 500 y 503 según el tipo de excepción |
+
+**Estructura nueva**
+
+```
+.env.example                 plantilla de variables (el .env real NO se sube a Git)
+docker-compose.yml           PostgreSQL + Adminer (+ API opcional para el servidor)
+Dockerfile                   imagen de la API para Ubuntu Server
+.sequelizerc                 rutas que usa sequelize-cli
+database/esquema.sql         esquema final de la tabla (pg_dump)
+migrations/                  001 crea la tabla y CHECKs, 002 agrega índices
+seeders/                     incidentes de ejemplo
+scripts/pruebas.js           23 pruebas: casos correctos, errores y seguridad
+src/config/config.js         lee la conexión desde variables de entorno
+src/db/sequelize.js          crea el pool de conexiones
+src/models/Incident.js       modelo ORM con validaciones
+src/models/incidentModel.js  consultas (findAll, findByPk, create, save, destroy)
+src/middleware/asyncHandler.js  envía los errores async al manejador central
+```
+
+**Seguridad aplicada**
+- Credenciales solo en `.env` (ignorado por Git) y la app no arranca si faltan.
+- PostgreSQL publicado solo en `127.0.0.1`: no queda expuesto a la red.
+- Consultas parametrizadas del ORM: la búsqueda `' OR '1'='1` devuelve 0 resultados.
+- Lista blanca de campos (evita asignación masiva) y validación del `id` y de los filtros.
+- Escape de HTML en la vista para evitar XSS almacenado, ahora que los datos se guardan.
+- Los errores no revelan SQL ni el stack trace al cliente; el detalle queda en el log.
+- `express.json({ limit: "10kb" })` y `x-powered-by` desactivado.
+
+## Cómo ejecutar
+
+### Opción A: PC con Docker Desktop (desarrollo)
+
+```bash
+cp .env.example .env          # en Windows: copy .env.example .env  (y cambiar DB_PASSWORD)
+docker compose up -d db adminer
+npm install
+npm run db:migrate            # crea la tabla
+npm run db:seed               # carga datos de ejemplo
+npm start                     # http://localhost:3000
+npm run probar                # en otra terminal: ejecuta las 23 pruebas
+```
+
+Adminer (ver la base): http://localhost:8080 → Sistema *PostgreSQL*, Servidor `db`, usuario/clave/base del `.env`.
+
+### Opción B: Ubuntu Server (todo en contenedores)
+
+```bash
+# en el servidor (una sola vez)
+sudo apt update && sudo apt install -y docker.io docker-compose-v2 git
+sudo usermod -aG docker $USER   # cerrar sesión y volver a entrar
+
+git clone https://github.com/javieroel/DBP.git && cd DBP
+cp .env.example .env && nano .env      # poner una clave fuerte
+docker compose --profile full up -d --build   # base + adminer + API (migra al arrancar)
+docker compose exec app npx sequelize-cli db:seed:all
+docker compose logs -f app
+```
+
+La API queda en `http://IP_DEL_SERVIDOR:3000`. La base y Adminer solo escuchan en el propio servidor; para ver Adminer desde la PC se usa un túnel SSH:
+
+```bash
+ssh -L 8080:localhost:8080 usuario@IP_DEL_SERVIDOR    # luego abrir http://localhost:8080
+```
+
+Si el servidor usa firewall: `sudo ufw allow 3000/tcp` (no abrir 5432).
+
+### Comandos útiles de migraciones
+
+```bash
+npm run db:migrate:status     # qué migraciones están aplicadas
+npm run db:migrate:undo       # revierte la última
+npm run db:reset              # revierte todo, migra y siembra de nuevo
+```
+
+## ENTREGA T1S5
+
+En esta quinta entrega se reemplazó el modelo en memoria por PostgreSQL ejecutándose en Docker, accedido mediante el ORM Sequelize. Se definió el modelo `Incident` con validaciones, dos migraciones versionadas, un seeder, CRUD persistente con filtros por estado y prioridad, conexión configurada por variables de entorno y un manejador central que traduce cada excepción a su código HTTP. El script `npm run probar` verifica 23 casos correctos, de error y de seguridad.
+
+___
