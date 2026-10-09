@@ -8,6 +8,22 @@ const { Incident, ALLOWED_STATUS, ALLOWED_PRIORITY, ALLOWED_CATEGORY } = require
 // Esto evita la "asignación masiva" (mass assignment).
 const WRITABLE_FIELDS = ["title", "description", "category", "priority", "status", "date", "reporter", "area"];
 
+// Campos obligatorios: PUT reemplaza el incidente completo, así que debe traerlos todos.
+const REQUIRED_FIELDS = ["title", "description", "category", "priority", "date", "reporter"];
+
+// REGLA DE NEGOCIO: a qué estados se puede pasar desde cada estado.
+// Un incidente resuelto (closed) no se reabre: se registra uno nuevo.
+const STATUS_TRANSITIONS = {
+  open: ["progress", "closed"],
+  progress: ["open", "closed"],
+  closed: []
+};
+
+function canChangeStatus(from, to) {
+  if (from === to) return true; // no hay cambio
+  return (STATUS_TRANSITIONS[from] || []).includes(to);
+}
+
 function pickWritable(data) {
   const clean = {};
   WRITABLE_FIELDS.forEach((field) => {
@@ -68,6 +84,10 @@ async function remove(id) {
 }
 
 module.exports = {
+  WRITABLE_FIELDS,
+  REQUIRED_FIELDS,
+  STATUS_TRANSITIONS,
+  canChangeStatus,
   ALLOWED_STATUS,
   ALLOWED_PRIORITY,
   ALLOWED_CATEGORY,

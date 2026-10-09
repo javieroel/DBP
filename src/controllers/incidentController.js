@@ -77,12 +77,55 @@ const createIncident = asyncHandler(async (req, res) => {
   res.status(201).location(`/api/incidentes/${created.toJSON().id}`).json(created); // 201 Created
 });
 
-// PUT /api/incidentes/:id
+// Revisa la regla de negocio de estados contra el registro ACTUAL de la base.
+function checkStatusChange(current, newStatus) {
+  if (newStatus === undefined) return;
+  if (!incidentModel.ALLOWED_STATUS.includes(newStatus)) return; // lo rechaza la validación del modelo (400)
+  if (!incidentModel.canChangeStatus(current.status, newStatus)) {
+    const allowed = incidentModel.STATUS_TRANSITIONS[current.status];
+    throw new HttpError(
+      409,
+      allowed.length
+        ? `No se puede pasar de "${current.status}" a "${newStatus}". Permitidos: ${allowed.join(", ")}.`
+        : `El incidente ya está resuelto ("${current.status}") y no puede cambiar de estado.`
+    );
+  }
+}
+
+// PUT /api/incidentes/:id  -> REEMPLAZA el incidente completo (todos los campos obligatorios)
 const updateIncident = asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  const updated = await incidentModel.update(id, bodyWithReporter(req.body));
-  if (!updated) throw new HttpError(404, `No existe el incidente ${req.params.id}`);
-  res.json(updated);
+  const body = bodyWithReporter(req.body);
+
+  const missing = incidentModel.REQUIRED_FIELDS.filter((field) => body[field] === undefined);
+  if (missing.length) {
+    throw new HttpError(400, `PUT reemplaza el incidente completo. Faltan campos: ${missing.join(", ")}. Para cambios parciales use PATCH.`);
+  }
+
+  const current = await incidentModel.getById(id);
+  if (!current) throw new HttpError(404, `No existe el incidente ${req.params.id}`);
+  checkStatusChange(current, body.status);
+
+  const updated = await incidentModel.update(id, body);
+  res.json(updated); // 200 OK
+});
+
+// PATCH /api/incidentes/:id  -> modifica SOLO los campos enviados (ej. { "status": "closed" })
+const patchIncident = asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  const body = bodyWithReporter(req.body);
+
+  const sent = incidentModel.WRITABLE_FIELDS.filter((field) => body[field] !== undefined);
+  if (!sent.length) {
+    throw new HttpError(400, `PATCH necesita al menos un campo para modificar: ${incidentModel.WRITABLE_FIELDS.join(", ")}.`);
+  }
+
+  const current = await incidentModel.getById(id);
+  if (!current) throw new HttpError(404, `No existe el incidente ${req.params.id}`);
+  checkStatusChange(current, body.status);
+
+  const updated = await incidentModel.update(id, body);
+  res.json(updated); // 200 OK
 });
 
 // DELETE /api/incidentes/:id
@@ -97,5 +140,6 @@ module.exports = {
   getIncident,
   createIncident,
   updateIncident,
+  patchIncident,
   deleteIncident
 };

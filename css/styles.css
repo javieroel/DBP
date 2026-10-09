@@ -186,6 +186,41 @@ h3 {
   width: 100%;
 }
 
+.button-small {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+}
+
+.button-danger {
+  color: #a8371c;
+  background: var(--surface);
+  border-color: #f0c9bd;
+}
+
+.button-danger:hover,
+.button-danger:focus-visible {
+  border-color: var(--coral);
+  background: #fdf1ed;
+}
+
+.button-danger[data-confirm="true"] {
+  color: var(--surface);
+  background: #c24b2e;
+  border-color: #c24b2e;
+}
+
+.incident-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.incident-item {
+  cursor: pointer;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.8fr);

@@ -58,12 +58,16 @@ const IncidentController = (() => {
 
   async function refreshList(selectedId) {
     const incidents = await IncidentModel.loadIncidents(currentFilters());
-    IncidentView.renderList(incidents, IncidentModel.statusLabels);
+    IncidentView.renderList(incidents, IncidentModel.statusLabels, IncidentModel.statusActions);
     const selected = selectedId
       ? IncidentModel.getById(selectedId) || incidents[0] || null
       : incidents[0] || null;
-    IncidentView.renderDetail(selected, IncidentModel.statusLabels);
+    showDetail(selected);
     return incidents;
+  }
+
+  function showDetail(incident) {
+    IncidentView.renderDetail(incident, IncidentModel.statusLabels, IncidentModel.statusActions);
   }
 
   async function handleSubmit(event) {
@@ -102,38 +106,46 @@ const IncidentController = (() => {
     }
   }
 
-  function handleListClick(event) {
-    const item = event.target.closest(".incident-item");
-    if (!item) return;
-    const incident = IncidentModel.getById(item.getAttribute("data-id"));
-    IncidentView.renderDetail(incident, IncidentModel.statusLabels);
-    IncidentView.announce(`Mostrando detalle de ${incident.id}.`);
-  }
+  // Un solo manejador para todos los botones (tarjetas y panel de detalle)
+  async function handleAction(event) {
+    const button = event.target.closest("[data-action]");
 
-  function handleListKeydown(event) {
-    if (event.key === "Enter" || event.key === " ") {
+    // Clic en la tarjeta (fuera de los botones): mostrar su detalle
+    if (!button) {
       const item = event.target.closest(".incident-item");
-      if (item) {
-        event.preventDefault();
-        handleListClick(event);
-      }
+      if (item) showDetail(IncidentModel.getById(item.getAttribute("data-id")));
+      return;
     }
-  }
 
-  async function handleUpdateStatus(event) {
-    const button = event.target.closest("[data-action='update-status']");
-    if (!button) return;
-    const current = IncidentModel.getById(button.getAttribute("data-id"));
-    if (!current) return;
+    const id = button.getAttribute("data-id");
+    const action = button.getAttribute("data-action");
 
     try {
-      const updated = await IncidentModel.updateIncident(current.id, {
-        status: IncidentModel.nextStatus[current.status]
-      });
-      await refreshList(updated.id);
-      IncidentView.announce(`El incidente ${updated.id} cambió a ${IncidentModel.statusLabels[updated.status]}.`);
+      if (action === "view") {
+        showDetail(IncidentModel.getById(id));
+        IncidentView.announce(`Mostrando detalle de ${id}.`);
+      }
+
+      if (action === "set-status") {
+        const status = button.getAttribute("data-status");
+        const updated = await IncidentModel.patchIncident(id, { status }); // PATCH
+        await refreshList(updated.id);
+        IncidentView.announce(`El incidente ${updated.id} cambió a ${IncidentModel.statusLabels[updated.status]}.`);
+      }
+
+      if (action === "delete") {
+        if (button.dataset.confirm !== "true") {
+          IncidentView.askDeleteConfirmation(button);
+          IncidentView.announce(`Pulsa "Confirmar eliminación" para borrar ${id}.`);
+          return;
+        }
+        await IncidentModel.deleteIncident(id); // DELETE
+        await refreshList();
+        IncidentView.announce(`El incidente ${id} fue eliminado.`);
+      }
     } catch (error) {
       IncidentView.announce(error.message);
+      await refreshList(id).catch(() => {});
     }
   }
 
@@ -148,9 +160,8 @@ const IncidentController = (() => {
     form.addEventListener("submit", handleSubmit);
     form.addEventListener("reset", () => IncidentView.resetForm(form));
     filterForm.addEventListener("submit", handleFilter);
-    listEl.addEventListener("click", handleListClick);
-    listEl.addEventListener("keydown", handleListKeydown);
-    detailEl.addEventListener("click", handleUpdateStatus);
+    listEl.addEventListener("click", handleAction);
+    detailEl.addEventListener("click", handleAction);
     attachLiveValidation();
   }
 

@@ -64,14 +64,15 @@ function short(data) {
   r = await call("GET", `/api/incidentes/${id}`);
   check(`GET /api/incidentes/${id}`, 200, r, r.data.title);
 
-  r = await call("PUT", `/api/incidentes/${id}`, { status: "progress", area: "SOC" });
-  check(`PUT actualizar ${id}`, 200, r, `status=${r.data.status}, area=${r.data.area}`);
+  r = await call("PATCH", `/api/incidentes/${id}`, { status: "progress", area: "SOC" });
+  check(`PATCH cambio parcial ${id}`, 200, r, `status=${r.data.status}, area=${r.data.area}`);
 
-  r = await call("DELETE", `/api/incidentes/${id}`);
-  check(`DELETE ${id}`, 204, r);
+  r = await call("PUT", `/api/incidentes/${id}`, { ...valid, title: "Fuerza bruta contenida en el SOC", status: "progress" });
+  check(`PUT reemplazo completo ${id}`, 200, r, r.data.title);
 
-  r = await call("GET", `/api/incidentes/${id}`);
-  check(`GET ${id} después de borrar`, 404, r, short(r.data));
+  r = await call("PATCH", `/api/incidentes/${id}`, { status: "closed" });
+  check(`PATCH marcar resuelto ${id}`, 200, r, `status=${r.data.status}`);
+
 
   console.log("\n=== CASOS DE ERROR (deben ser rechazados) ===");
   r = await call("POST", "/api/incidentes", {});
@@ -89,8 +90,20 @@ function short(data) {
   r = await call("POST", "/api/incidentes", '{"title": "roto",', true);
   check("POST JSON mal formado", 400, r, short(r.data));
 
-  r = await call("PUT", "/api/incidentes/INC-001", { status: "hackeado" });
-  check("PUT estado no permitido", 400, r, short(r.data));
+  r = await call("PATCH", "/api/incidentes/INC-001", { status: "hackeado" });
+  check("PATCH estado no permitido", 400, r, short(r.data));
+
+  r = await call("PATCH", `/api/incidentes/${id}`, {});
+  check("PATCH sin campos", 400, r, short(r.data));
+
+  r = await call("PUT", `/api/incidentes/${id}`, { status: "open" });
+  check("PUT incompleto (faltan campos)", 400, r, short(r.data));
+
+  r = await call("PATCH", `/api/incidentes/${id}`, { status: "open" });
+  check("PATCH reabrir incidente resuelto (regla de negocio)", 409, r, short(r.data));
+
+  r = await call("PATCH", "/api/incidentes/INC-999", { status: "closed" });
+  check("PATCH id inexistente", 404, r, short(r.data));
 
   r = await call("GET", "/api/incidentes?status=hackeado");
   check("Filtro con estado no permitido", 400, r, short(r.data));
@@ -106,6 +119,13 @@ function short(data) {
 
   r = await call("GET", "/api/no-existe");
   check("Ruta inexistente", 404, r, short(r.data));
+
+  console.log("\n=== ELIMINACIÓN ===");
+  r = await call("DELETE", `/api/incidentes/${id}`);
+  check(`DELETE ${id}`, 204, r);
+
+  r = await call("GET", `/api/incidentes/${id}`);
+  check(`GET ${id} después de borrar`, 404, r, short(r.data));
 
   console.log("\n=== CASOS DE SEGURIDAD ===");
   r = await call("GET", "/api/incidentes?q=" + encodeURIComponent("' OR '1'='1"));

@@ -30,7 +30,28 @@ const IncidentView = (() => {
     return d.toLocaleDateString("es-EC", { day: "2-digit", month: "short", year: "numeric" });
   }
 
-  function renderList(incidents, statusLabels) {
+  // Botones de acción de un incidente (se usan en la tarjeta y en el detalle)
+  function actionsHtml(incident, statusActions, { withView = false } = {}) {
+    const id = escapeHtml(incident.id);
+    const viewButton = withView
+      ? `<button class="button button-small button-secondary" type="button" data-action="view" data-id="${id}">Ver detalle</button>`
+      : "";
+    const statusButtons = (statusActions[incident.status] || [])
+      .map(
+        (action) =>
+          `<button class="button button-small button-secondary" type="button" data-action="set-status" data-id="${id}" data-status="${action.to}">${action.label}</button>`
+      )
+      .join("");
+    const deleteButton = `<button class="button button-small button-danger" type="button" data-action="delete" data-id="${id}">Eliminar</button>`;
+
+    return `
+      <div class="incident-actions" role="group" aria-label="Acciones para ${id}">
+        ${viewButton}${statusButtons}${deleteButton}
+      </div>
+    `;
+  }
+
+  function renderList(incidents, statusLabels, statusActions) {
     listEl.innerHTML = "";
     countEl.textContent = `${incidents.length} registro${incidents.length !== 1 ? "s" : ""}`;
 
@@ -43,9 +64,6 @@ const IncidentView = (() => {
       const article = document.createElement("article");
       article.className = "incident-item";
       article.setAttribute("data-id", incident.id);
-      article.setAttribute("tabindex", "0");
-      article.setAttribute("role", "button");
-      article.setAttribute("aria-label", `Ver detalle de ${incident.id}: ${incident.title}`);
 
       article.innerHTML = `
         <div class="incident-item-topline">
@@ -59,12 +77,13 @@ const IncidentView = (() => {
           <span>${escapeHtml(priorityLabels[incident.priority] || incident.priority)}</span>
           <span>${formatDate(incident.date)}</span>
         </div>
+        ${actionsHtml(incident, statusActions, { withView: true })}
       `;
       listEl.appendChild(article);
     });
   }
 
-  function renderDetail(incident, statusLabels) {
+  function renderDetail(incident, statusLabels, statusActions) {
     if (!incident) {
       detailEl.innerHTML = `<p>Selecciona un incidente de la lista para ver su detalle.</p>`;
       return;
@@ -83,7 +102,7 @@ const IncidentView = (() => {
         <h3>Descripción</h3>
         <p>${escapeHtml(incident.description)}</p>
       </div>
-      <button class="button button-secondary button-full" type="button" data-action="update-status" data-id="${escapeHtml(incident.id)}">Actualizar estado</button>
+      ${actionsHtml(incident, statusActions)}
     `;
   }
 
@@ -119,8 +138,21 @@ const IncidentView = (() => {
     ["title", "category", "priority", "description", "email", "date"].forEach(clearFieldError);
   }
 
+  // Primer clic en "Eliminar": pide confirmación sin abrir ventanas emergentes
+  function askDeleteConfirmation(button) {
+    button.dataset.confirm = "true";
+    button.textContent = "Confirmar eliminación";
+    setTimeout(() => {
+      if (button.isConnected && button.dataset.confirm === "true") {
+        button.dataset.confirm = "";
+        button.textContent = "Eliminar";
+      }
+    }, 5000);
+  }
+
   return {
     renderList,
+    askDeleteConfirmation,
     renderDetail,
     showFieldError,
     clearFieldError,
