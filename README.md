@@ -576,3 +576,141 @@ No pide contraseña porque `docker compose exec` entra al propio contenedor de l
 
 Toda esta información ayuda como una guía preliminar y breve de como se debe administrar la plataforma y de esta manera, ya podemos hacer consultas con SQL para explorar el contenido almacenado o generado por la misma.
 ___
+
+## Instrucciones T1S6
+
+Fortalezca la plataforma de incidentes. Proteja rutas con JWT y roles, aplique hash de contraseñas, configure CORS, documente HTTPS, valide y limpie entradas. Integre el cliente con la API y pruebe crear, consultar, actualizar y eliminar. Registre al menos ocho casos, incluidos accesos sin token, permisos insuficientes y datos inválidos. Entregue código, evidencias y un informe de 800 a 1000 palabras con fallos encontrados y mejoras realizadas.
+
+## Fallos encontrados
+
+| # | Fallo en la versión anterior | Riesgo |
+|---|---|---|
+| 1 | La API no pedía identificación: cualquier equipo de la red podía crear, modificar o borrar incidentes | Control de acceso roto (OWASP A01) |
+| 2 | No existían roles: todos podían hacer todo | Escalada de privilegios |
+| 3 | El texto con HTML (`<script>`, `<img onerror>`) se guardaba tal cual; solo lo frenaba el escape de la vista | XSS almacenado |
+| 4 | Sin cabeceras de seguridad (CSP, X-Frame-Options, nosniff) | XSS, clickjacking |
+| 5 | Sin política CORS explícita | Uso de la API desde sitios no autorizados |
+| 6 | Tráfico en HTTP plano | Credenciales y tokens legibles en la red |
+
+## Mejoras realizadas
+
+| Mejora | Dónde |
+|---|---|
+| **Login con JWT** (HS256, expira en 1 h, emisor y audiencia verificados; se rechaza `alg: none`) | `src/services/authService.js`, `src/routes/authRoutes.js` |
+| **Contraseñas con hash bcrypt** (12 rondas). La tabla `users` solo guarda el hash; un `CHECK` impide texto plano | `migrations/20261009000003-create-users.js`, `seeders/20261009000002-demo-users.js` |
+| **Mismo mensaje para correo inexistente o contraseña incorrecta**, con comparación contra un hash de relleno para no revelar qué correos existen | `src/services/authService.js` |
+| **Límite de intentos de login**: 10 fallos por IP cada 15 minutos (`429`) | `src/routes/authRoutes.js` |
+| **Rutas protegidas con token** (`401`) **y roles** (`403`) | `src/middleware/auth.js`, `src/routes/incidentRoutes.js` |
+| **Limpieza de entradas**: quita etiquetas HTML, caracteres de control y claves `__proto__` antes de validar (la contraseña no se modifica) | `src/middleware/sanitize.js` |
+| **CORS**: solo la propia interfaz y los orígenes de `CORS_ORIGINS`; el resto recibe `403` | `app.js` |
+| **Cabeceras de seguridad con Helmet** (CSP, X-Frame-Options, nosniff, Referrer-Policy; HSTS con HTTPS) | `app.js` |
+| **HTTPS con Caddy** como proxy inverso (perfil opcional) | `deploy/Caddyfile`, `docker-compose.yml` |
+| **Cliente integrado**: inicio y cierre de sesión, token en cada `fetch`, botones según el rol y cierre automático de sesión ante un `401` | `index.html`, `js/model.js`, `js/view.js`, `js/controller.js` |
+
+### Roles y permisos
+
+| Acción | Ruta | admin | analista | lector |
+|---|---|:-:|:-:|:-:|
+| Consultar | `GET /api/incidentes`, `GET /api/incidentes/:id` | ✅ | ✅ | ✅ |
+| Crear | `POST /api/incidentes` | ✅ | ✅ | ❌ 403 |
+| Cambiar estado | `PATCH /api/incidentes/:id` | ✅ | ✅ | ❌ 403 |
+| Reemplazar | `PUT /api/incidentes/:id` | ✅ | ❌ 403 | ❌ 403 |
+| Eliminar | `DELETE /api/incidentes/:id` | ✅ | ❌ 403 | ❌ 403 |
+
+Sin token, o con un token inválido, cualquier ruta de incidentes responde `401`. `GET /api/salud` y `POST /api/auth/login` son públicas.
+
+### Casos de prueba registrados
+
+El script `npm run probar` ejecuta 39 casos. Estos son los más representativos:
+
+| # | Caso | Esperado | Obtenido |
+|---|---|:-:|:-:|
+| 1 | Consultar incidentes sin token | 401 | 401 |
+| 2 | Token firmado con otra clave (rol admin falso) | 401 | 401 |
+| 3 | Token sin firma (`alg: none`) | 401 | 401 |
+| 4 | Token de lector modificado a rol admin | 401 | 401 |
+| 5 | Login con contraseña incorrecta | 401 | 401 |
+| 6 | Lector intenta crear un incidente | 403 | 403 |
+| 7 | Analista intenta eliminar un incidente | 403 | 403 |
+| 8 | Crear con correo y categoría inválidos | 400 | 400 |
+| 9 | Título con `<script>` | 201, guardado sin etiquetas | 201 |
+| 10 | Búsqueda con `' OR '1'='1` | 200, 0 resultados | 200 |
+| 11 | Petición desde un origen no autorizado (CORS) | 403 | 403 |
+| 12 | CRUD completo con los roles correctos | 201 / 200 / 200 / 204 | ✅ |
+
+### Mejoras de experiencia de usuario
+
+- **Detalle del ticket fijo al desplazarse:** el panel de detalle de la barra lateral usa `position: sticky`, así que acompaña al usuario mientras recorre la lista de incidentes. Si el detalle es más alto que la pantalla, tiene su propio desplazamiento (`max-height` + `overflow-y: auto`). En pantallas pequeñas vuelve a su posición normal.
+- **Interfaz más limpia:** se eliminó el recuadro estático "Próximo paso", que no aportaba información del incidente.
+
+### Evidencias
+
+<p align="center">
+    <img src="assets/repo_images/ui_sesion_lector.png" alt="Interfaz con la sesión iniciada como lector: formulario bloqueado y sin botones de cambio de estado ni eliminación" style="width: 700px;">
+    <br><em>Figura S1. Integración cliente-API: con el rol lector el formulario se bloquea y solo se puede consultar.</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/pruebas_seguridad_39.png" alt="Resultado del script de pruebas: 39 de 39 casos de autenticación, permisos, validación y CORS con el código HTTP esperado" style="width: 700px;">
+    <br><em>Figura S2. Pruebas contra el servidor: accesos sin token (401), permisos insuficientes (403), datos inválidos (400) y CORS (403).</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/usuarios_hash_bcrypt.png" alt="Consulta psql de la tabla users donde las contraseñas aparecen como hash bcrypt" style="width: 700px;">
+    <br><em>Figura S3. Las contraseñas se almacenan como hash bcrypt, nunca en texto plano.</em>
+</p>
+
+## HTTPS
+
+La aplicación habla HTTP en el puerto 3000. Para cifrar el tráfico se añadió **Caddy** como proxy inverso: el navegador se conecta por HTTPS (puerto 443) a Caddy, y Caddy reenvía la petición a la API por la red interna de Docker.
+
+```
+Navegador ──HTTPS:443──> Caddy ──HTTP (red interna de Docker)──> API :3000 ──> PostgreSQL
+```
+
+- `tls internal`: Caddy crea su propia autoridad certificadora (CA) local, adecuada para una red de casa o de laboratorio. El navegador avisará hasta que se instale el certificado raíz de esa CA.
+- En un servidor con dominio público basta con quitar `tls internal` y poner el dominio en `SITE_ADDRESS`: Caddy obtiene y renueva solo un certificado de Let's Encrypt.
+- Con `HTTPS_PROXY_ENABLED=true` la API añade **HSTS** (obliga al navegador a usar siempre HTTPS) y la directiva CSP `upgrade-insecure-requests`.
+- Con `APP_PORT=127.0.0.1:3000` el puerto HTTP deja de estar expuesto a la red; solo se entra por HTTPS.
+
+```bash
+# en .env: HTTPS_PROXY_ENABLED=true, APP_PORT=127.0.0.1:3000, SITE_ADDRESS=IP_DEL_SERVIDOR
+docker compose --profile full --profile https up -d --build
+# Abrir https://IP_DEL_SERVIDOR
+# Certificado raíz para instalarlo en el PC (opcional, quita el aviso del navegador):
+docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+```
+
+## Actualización del servidor para la Unidad 6
+
+```bash
+cd ~/DBP && git pull
+
+# Agregar al .env las variables nuevas (la clave JWT se genera aleatoria)
+cat >> .env <<EOF2
+JWT_SECRET=$(openssl rand -hex 32)
+JWT_EXPIRES_IN=1h
+CORS_ORIGINS=http://IP_DEL_SERVIDOR:3000
+HTTPS_PROXY_ENABLED=false
+SEED_ADMIN_PASSWORD=<clave-admin>
+SEED_ANALISTA_PASSWORD=<clave-analista>
+SEED_LECTOR_PASSWORD=<clave-lector>
+EOF2
+
+docker compose --profile full up -d --build           # aplica la migración 3 (tabla users)
+docker compose exec app npx sequelize-cli db:seed:all  # crea los 3 usuarios con hash bcrypt
+```
+
+Reemplace cada `<clave-...>` por una contraseña real de al menos 10 caracteres. Usuarios creados: `admin@incidentes.local`, `analista@incidentes.local` y `lector@incidentes.local`, con las contraseñas del `.env` del servidor (que nunca se sube a Git).
+
+Ejecutar las pruebas desde el PC:
+
+```bash
+API_URL=http://IP_DEL_SERVIDOR:3000 ADMIN_PASSWORD=... ANALISTA_PASSWORD=... LECTOR_PASSWORD=... npm run probar
+```
+
+## ENTREGA T1S6
+
+En esta sexta entrega la plataforma pasó de una API abierta a una API protegida: autenticación con JWT, contraseñas con hash bcrypt, autorización por roles, limpieza y validación de entradas, política CORS, cabeceras de seguridad y HTTPS mediante Caddy. El cliente web se integró con este esquema (inicio de sesión, token en cada petición y botones según el rol) y se mejoró la experiencia de usuario manteniendo visible el detalle del ticket. 39 casos de prueba verifican el funcionamiento correcto y el rechazo de accesos sin token, permisos insuficientes y datos inválidos.
+
+___

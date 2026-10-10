@@ -143,8 +143,8 @@ const msg = (data) =>
   console.log("\n=== 6. CORS ===");
   r = await call("GET", "/api/salud", { headers: { Origin: "http://sitio-malicioso.example" } });
   check("Petición desde un origen no autorizado", 403, r, msg(r.data));
-  r = await call("GET", "/api/salud", { headers: { Origin: "http://localhost:3000" } });
-  check("Petición desde un origen autorizado", 200, r, `Access-Control-Allow-Origin: ${r.headers.get("access-control-allow-origin")}`);
+  r = await call("GET", "/api/salud", { headers: { Origin: new URL(BASE).origin } });
+  check("Petición desde el origen de la propia interfaz", 200, r, `Access-Control-Allow-Origin: ${r.headers.get("access-control-allow-origin")}`);
 
   console.log("\n=== 7. ELIMINACIÓN (solo admin) ===");
   for (const target of [id, xssId, massId].filter(Boolean)) {
