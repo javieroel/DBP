@@ -360,8 +360,7 @@ small {
 }
 
 .incident-item p,
-.detail-description p,
-.tip-box p {
+.detail-description p {
   margin-bottom: 14px;
   color: var(--muted);
 }
@@ -397,8 +396,12 @@ small {
   background: #e9eef0;
 }
 
+/* El detalle del ticket acompaña al usuario mientras recorre la lista (UX) */
 .detail-panel {
+  position: sticky;
   top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
 }
 
 .detail-title {
@@ -441,22 +444,6 @@ small {
   font-size: 0.9rem;
 }
 
-.tip-box {
-  padding: 20px;
-  background: #fff5d9;
-  border: 1px solid #f2d88f;
-  border-radius: 8px;
-}
-
-.tip-box strong {
-  display: block;
-  margin-bottom: 5px;
-}
-
-.tip-box p {
-  margin-bottom: 0;
-  font-size: 0.9rem;
-}
 
 .justification {
   padding-top: 82px;

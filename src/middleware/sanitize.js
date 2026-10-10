@@ -3,6 +3,8 @@
 //  - quita etiquetas HTML (<script>, <img onerror=...>) -> defensa contra XSS almacenado
 //  - quita caracteres de control invisibles y espacios sobrantes
 const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+// Las contraseñas NO se modifican: se comparan tal cual con el hash bcrypt
+const RAW_KEYS = new Set(["password"]);
 
 function cleanString(value) {
   return value
@@ -17,7 +19,7 @@ function sanitizeBody(req, res, next) {
     const clean = {};
     for (const [key, value] of Object.entries(req.body)) {
       if (FORBIDDEN_KEYS.has(key)) continue;
-      clean[key] = typeof value === "string" ? cleanString(value) : value;
+      clean[key] = typeof value === "string" && !RAW_KEYS.has(key) ? cleanString(value) : value;
     }
     req.body = clean;
   }
