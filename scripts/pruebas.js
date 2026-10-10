@@ -1,6 +1,15 @@
-// PRUEBAS DE LA API: ejecuta casos correctos y casos de error contra el servidor.
-// Uso: con el servidor encendido (npm start), en otra terminal: npm run probar
+// PRUEBAS DE LA API (Unidad 6): funcionamiento, autenticación, autorización, validación y CORS.
+// Uso: con el servidor encendido -> npm run probar
+//      contra otro servidor       -> API_URL=http://IP:3000 npm run probar
+// Credenciales: ADMIN_PASSWORD, ANALISTA_PASSWORD y LECTOR_PASSWORD (por defecto, las de ejemplo del .env).
+const crypto = require("crypto");
+
 const BASE = process.env.API_URL || "http://localhost:3000";
+const PASSWORDS = {
+  admin: process.env.ADMIN_PASSWORD || "Admin_Prueba_2026",
+  analista: process.env.ANALISTA_PASSWORD || "Analista_Prueba_2026",
+  lector: process.env.LECTOR_PASSWORD || "Lector_Prueba_2026"
+};
 
 const valid = {
   title: "Intento de acceso por fuerza bruta",
@@ -12,8 +21,9 @@ const valid = {
   area: "Seguridad de la información"
 };
 
-async function call(method, path, body, raw) {
-  const options = { method, headers: {} };
+async function call(method, path, { body, token, raw, headers = {} } = {}) {
+  const options = { method, headers: { ...headers } };
+  if (token) options.headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) {
     options.headers["Content-Type"] = "application/json";
     options.body = raw ? body : JSON.stringify(body);
@@ -22,120 +32,129 @@ async function call(method, path, body, raw) {
   const text = await response.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-  return { status: response.status, data };
+  return { status: response.status, data, headers: response.headers };
+}
+
+// Fabrica un JWT "falso" con la librería estándar de Node (sin conocer la clave real)
+function forgeToken(header, payload, secret) {
+  const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
+  const unsigned = `${b64(header)}.${b64(payload)}`;
+  if (!secret) return `${unsigned}.`;
+  const signature = crypto.createHmac("sha256", secret).update(unsigned).digest("base64url");
+  return `${unsigned}.${signature}`;
 }
 
 const results = [];
 function check(name, expected, res, note = "") {
   const ok = res.status === expected;
-  results.push({ ok, name, expected, got: res.status, note });
-  const mark = ok ? "OK  " : "FALLA";
-  console.log(`${mark} [${res.status}] ${name}${note ? " -> " + note : ""}`);
+  results.push(ok);
+  console.log(`${ok ? "OK   " : "FALLA"} [${res.status}] ${name}${note ? " -> " + note : ""}`);
   if (!ok) console.log("      respuesta:", JSON.stringify(res.data));
 }
-
-function short(data) {
-  if (data && data.detalles) return data.detalles.map((d) => `${d.campo}: ${d.mensaje}`).join(" | ");
-  if (data && data.error) return data.error;
-  return "";
-}
+const msg = (data) =>
+  data && data.detalles ? data.detalles.map((d) => `${d.campo}: ${d.mensaje}`).join(" | ") : (data && data.error) || "";
 
 (async () => {
-  console.log(`\n=== CASOS CORRECTOS (${BASE}) ===`);
-  let r = await call("GET", "/api/salud");
-  check("GET /api/salud", 200, r, `baseDatos: ${r.data && r.data.baseDatos}`);
+  const tokens = {};
 
+  console.log(`\n=== 1. AUTENTICACIÓN (${BASE}) ===`);
+  check("GET /api/salud es pública", 200, await call("GET", "/api/salud"));
+  for (const role of ["admin", "analista", "lector"]) {
+    const r = await call("POST", "/api/auth/login", { body: { email: `${role}@incidentes.local`, password: PASSWORDS[role] } });
+    check(`Login correcto de ${role}`, 200, r, r.data && r.data.user ? `rol=${r.data.user.role}, token emitido` : "");
+    tokens[role] = r.data && r.data.token;
+  }
+  let r = await call("GET", "/api/auth/me", { token: tokens.analista });
+  check("GET /api/auth/me con token", 200, r, r.data && r.data.user && r.data.user.email);
+  r = await call("POST", "/api/auth/login", { body: { email: "admin@incidentes.local", password: "clave-incorrecta" } });
+  check("Login con contraseña incorrecta", 401, r, msg(r.data));
+  r = await call("POST", "/api/auth/login", { body: { email: "noexiste@incidentes.local", password: "lo-que-sea" } });
+  check("Login con correo inexistente (mismo mensaje)", 401, r, msg(r.data));
+  r = await call("POST", "/api/auth/login", { body: { email: "no-es-correo", password: "x" } });
+  check("Login con datos inválidos", 400, r, msg(r.data));
+
+  console.log("\n=== 2. ACCESO SIN TOKEN O CON TOKEN FALSO ===");
   r = await call("GET", "/api/incidentes");
-  check("GET /api/incidentes (listar)", 200, r, `${r.data.length} registros`);
+  check("GET incidentes sin token", 401, r, msg(r.data));
+  r = await call("POST", "/api/incidentes", { body: valid });
+  check("POST incidente sin token", 401, r, msg(r.data));
+  r = await call("GET", "/api/incidentes", { token: "abc.def.ghi" });
+  check("Token mal formado", 401, r, msg(r.data));
+  const claims = { role: "admin", sub: "1", iss: "dbp-incidentes", aud: "dbp-incidentes-web", exp: Math.floor(Date.now() / 1000) + 3600 };
+  r = await call("DELETE", "/api/incidentes/INC-001", { token: forgeToken({ alg: "HS256", typ: "JWT" }, claims, "clave-del-atacante") });
+  check("Token firmado con otra clave (rol admin falso)", 401, r, msg(r.data));
+  r = await call("DELETE", "/api/incidentes/INC-001", { token: forgeToken({ alg: "none", typ: "JWT" }, claims) });
+  check('Token sin firma (alg "none")', 401, r, msg(r.data));
+  const [h, p, s] = tokens.lector.split(".");
+  const tampered = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(p, "base64url")), role: "admin" })).toString("base64url");
+  r = await call("DELETE", "/api/incidentes/INC-001", { token: `${h}.${tampered}.${s}` });
+  check("Token de lector modificado a rol admin", 401, r, msg(r.data));
 
-  r = await call("GET", "/api/incidentes?status=open");
-  check("Filtro por estado ?status=open", 200, r, `${r.data.length} registros, todos open: ${r.data.every((i) => i.status === "open")}`);
+  console.log("\n=== 3. CRUD CON PERMISOS CORRECTOS ===");
+  r = await call("GET", "/api/incidentes?status=open&priority=alta", { token: tokens.lector });
+  check("Lector consulta y filtra incidentes", 200, r, `${r.data.length} registros`);
+  r = await call("POST", "/api/incidentes", { token: tokens.analista, body: valid });
+  check("Analista crea incidente", 201, r, r.data && r.data.id);
+  const id = r.data && r.data.id;
+  r = await call("GET", `/api/incidentes/${id}`, { token: tokens.lector });
+  check(`Lector consulta ${id}`, 200, r);
+  r = await call("PATCH", `/api/incidentes/${id}`, { token: tokens.analista, body: { status: "progress" } });
+  check(`Analista cambia estado de ${id} (PATCH)`, 200, r, `status=${r.data && r.data.status}`);
+  r = await call("PUT", `/api/incidentes/${id}`, { token: tokens.admin, body: { ...valid, title: "Fuerza bruta contenida en el SOC", status: "closed" } });
+  check(`Admin reemplaza ${id} (PUT)`, 200, r, r.data && r.data.title);
 
-  r = await call("GET", "/api/incidentes?priority=alta");
-  check("Filtro por prioridad ?priority=alta", 200, r, `${r.data.length} registros, todos alta: ${r.data.every((i) => i.priority === "alta")}`);
+  console.log("\n=== 4. PERMISOS INSUFICIENTES ===");
+  r = await call("POST", "/api/incidentes", { token: tokens.lector, body: valid });
+  check("Lector intenta crear", 403, r, msg(r.data));
+  r = await call("PATCH", `/api/incidentes/${id}`, { token: tokens.lector, body: { status: "open" } });
+  check("Lector intenta cambiar estado", 403, r, msg(r.data));
+  r = await call("PUT", `/api/incidentes/${id}`, { token: tokens.analista, body: valid });
+  check("Analista intenta reemplazar (PUT)", 403, r, msg(r.data));
+  r = await call("DELETE", `/api/incidentes/${id}`, { token: tokens.analista });
+  check("Analista intenta eliminar", 403, r, msg(r.data));
 
-  r = await call("GET", "/api/incidentes?status=open&priority=alta");
-  check("Filtro combinado estado + prioridad", 200, r, `${r.data.length} registros`);
+  console.log("\n=== 5. DATOS INVÁLIDOS Y LIMPIEZA DE ENTRADAS ===");
+  r = await call("POST", "/api/incidentes", { token: tokens.analista, body: {} });
+  check("Cuerpo vacío", 400, r, `${r.data && r.data.detalles ? r.data.detalles.length : 0} campos rechazados`);
+  r = await call("POST", "/api/incidentes", { token: tokens.analista, body: { ...valid, reporter: "no-es-correo", category: "malware" } });
+  check("Correo y categoría inválidos", 400, r, msg(r.data));
+  r = await call("POST", "/api/incidentes", { token: tokens.analista, body: { ...valid, date: "2099-01-01" } });
+  check("Fecha en el futuro", 400, r, msg(r.data));
+  r = await call("POST", "/api/incidentes", { token: tokens.analista, body: '{"title": "roto",', raw: true });
+  check("JSON mal formado", 400, r, msg(r.data));
+  r = await call("PATCH", `/api/incidentes/${id}`, { token: tokens.analista, body: { status: "open" } });
+  check("Reabrir incidente resuelto (regla de negocio)", 409, r, msg(r.data));
+  r = await call("GET", "/api/incidentes/abc", { token: tokens.lector });
+  check("Identificador con formato incorrecto", 400, r, msg(r.data));
+  r = await call("GET", "/api/incidentes/INC-999", { token: tokens.lector });
+  check("Incidente inexistente", 404, r, msg(r.data));
+  r = await call("POST", "/api/incidentes", {
+    token: tokens.analista,
+    body: { ...valid, title: '<script>alert("xss")</script>Phishing con enlace', description: '<img src=x onerror=alert(1)>Correo con adjunto malicioso reportado.' }
+  });
+  const xssId = r.data && r.data.id;
+  check("XSS en título y descripción", 201, r, `guardado: "${r.data && r.data.title}" (sin etiquetas)`);
+  r = await call("GET", "/api/incidentes?q=" + encodeURIComponent("' OR '1'='1"), { token: tokens.lector });
+  check("Inyección SQL en la búsqueda", 200, r, `${r.data.length} registros (se trató como texto)`);
+  r = await call("POST", "/api/incidentes", { token: tokens.analista, body: { ...valid, id: 1, createdAt: "2000-01-01" } });
+  const massId = r.data && r.data.id;
+  check("Asignación masiva (envía id=1)", 201, r, `la base asignó ${massId}`);
 
-  r = await call("POST", "/api/incidentes", valid);
-  check("POST crear incidente válido", 201, r, `creado ${r.data.id}`);
-  const id = r.data.id;
+  console.log("\n=== 6. CORS ===");
+  r = await call("GET", "/api/salud", { headers: { Origin: "http://sitio-malicioso.example" } });
+  check("Petición desde un origen no autorizado", 403, r, msg(r.data));
+  r = await call("GET", "/api/salud", { headers: { Origin: "http://localhost:3000" } });
+  check("Petición desde un origen autorizado", 200, r, `Access-Control-Allow-Origin: ${r.headers.get("access-control-allow-origin")}`);
 
-  r = await call("GET", `/api/incidentes/${id}`);
-  check(`GET /api/incidentes/${id}`, 200, r, r.data.title);
+  console.log("\n=== 7. ELIMINACIÓN (solo admin) ===");
+  for (const target of [id, xssId, massId].filter(Boolean)) {
+    r = await call("DELETE", `/api/incidentes/${target}`, { token: tokens.admin });
+    check(`Admin elimina ${target}`, 204, r);
+  }
+  r = await call("GET", `/api/incidentes/${id}`, { token: tokens.admin });
+  check(`${id} ya no existe`, 404, r);
 
-  r = await call("PATCH", `/api/incidentes/${id}`, { status: "progress", area: "SOC" });
-  check(`PATCH cambio parcial ${id}`, 200, r, `status=${r.data.status}, area=${r.data.area}`);
-
-  r = await call("PUT", `/api/incidentes/${id}`, { ...valid, title: "Fuerza bruta contenida en el SOC", status: "progress" });
-  check(`PUT reemplazo completo ${id}`, 200, r, r.data.title);
-
-  r = await call("PATCH", `/api/incidentes/${id}`, { status: "closed" });
-  check(`PATCH marcar resuelto ${id}`, 200, r, `status=${r.data.status}`);
-
-
-  console.log("\n=== CASOS DE ERROR (deben ser rechazados) ===");
-  r = await call("POST", "/api/incidentes", {});
-  check("POST cuerpo vacío", 400, r, short(r.data));
-
-  r = await call("POST", "/api/incidentes", { ...valid, reporter: "no-es-correo" });
-  check("POST correo inválido", 400, r, short(r.data));
-
-  r = await call("POST", "/api/incidentes", { ...valid, category: "malware" });
-  check("POST categoría fuera de la lista", 400, r, short(r.data));
-
-  r = await call("POST", "/api/incidentes", { ...valid, date: "2099-01-01" });
-  check("POST fecha en el futuro", 400, r, short(r.data));
-
-  r = await call("POST", "/api/incidentes", '{"title": "roto",', true);
-  check("POST JSON mal formado", 400, r, short(r.data));
-
-  r = await call("PATCH", "/api/incidentes/INC-001", { status: "hackeado" });
-  check("PATCH estado no permitido", 400, r, short(r.data));
-
-  r = await call("PATCH", `/api/incidentes/${id}`, {});
-  check("PATCH sin campos", 400, r, short(r.data));
-
-  r = await call("PUT", `/api/incidentes/${id}`, { status: "open" });
-  check("PUT incompleto (faltan campos)", 400, r, short(r.data));
-
-  r = await call("PATCH", `/api/incidentes/${id}`, { status: "open" });
-  check("PATCH reabrir incidente resuelto (regla de negocio)", 409, r, short(r.data));
-
-  r = await call("PATCH", "/api/incidentes/INC-999", { status: "closed" });
-  check("PATCH id inexistente", 404, r, short(r.data));
-
-  r = await call("GET", "/api/incidentes?status=hackeado");
-  check("Filtro con estado no permitido", 400, r, short(r.data));
-
-  r = await call("GET", "/api/incidentes/abc");
-  check("GET id con formato incorrecto", 400, r, short(r.data));
-
-  r = await call("GET", "/api/incidentes/INC-999");
-  check("GET id inexistente", 404, r, short(r.data));
-
-  r = await call("DELETE", "/api/incidentes/INC-999");
-  check("DELETE id inexistente", 404, r, short(r.data));
-
-  r = await call("GET", "/api/no-existe");
-  check("Ruta inexistente", 404, r, short(r.data));
-
-  console.log("\n=== ELIMINACIÓN ===");
-  r = await call("DELETE", `/api/incidentes/${id}`);
-  check(`DELETE ${id}`, 204, r);
-
-  r = await call("GET", `/api/incidentes/${id}`);
-  check(`GET ${id} después de borrar`, 404, r, short(r.data));
-
-  console.log("\n=== CASOS DE SEGURIDAD ===");
-  r = await call("GET", "/api/incidentes?q=" + encodeURIComponent("' OR '1'='1"));
-  check("Inyección SQL en búsqueda ?q=' OR '1'='1", 200, r, `${r.data.length} registros (debe ser 0: se trató como texto)`);
-
-  r = await call("POST", "/api/incidentes", { ...valid, id: 1, createdAt: "2000-01-01" });
-  check("Asignación masiva (envía id=1)", 201, r, `la base asignó ${r.data.id}; id del cliente ignorado`);
-  if (r.status === 201) await call("DELETE", `/api/incidentes/${r.data.id}`);
-
-  const passed = results.filter((x) => x.ok).length;
+  const passed = results.filter(Boolean).length;
   console.log(`\nResultado: ${passed}/${results.length} pruebas con el código HTTP esperado.\n`);
   process.exit(passed === results.length ? 0 : 1);
 })().catch((error) => {

@@ -3,6 +3,8 @@ const IncidentController = (() => {
   const filterForm = document.getElementById("filter-form");
   const listEl = document.getElementById("incident-list");
   const detailEl = document.getElementById("detail-panel-content");
+  const loginForm = document.getElementById("login-form");
+  const logoutButton = document.getElementById("logout-btn");
 
   const validators = {
     title: (value) => {
@@ -58,7 +60,7 @@ const IncidentController = (() => {
 
   async function refreshList(selectedId) {
     const incidents = await IncidentModel.loadIncidents(currentFilters());
-    IncidentView.renderList(incidents, IncidentModel.statusLabels, IncidentModel.statusActions);
+    IncidentView.renderList(incidents, IncidentModel.statusLabels, IncidentModel.statusActions, IncidentModel.permissions());
     const selected = selectedId
       ? IncidentModel.getById(selectedId) || incidents[0] || null
       : incidents[0] || null;
@@ -67,11 +69,15 @@ const IncidentController = (() => {
   }
 
   function showDetail(incident) {
-    IncidentView.renderDetail(incident, IncidentModel.statusLabels, IncidentModel.statusActions);
+    IncidentView.renderDetail(incident, IncidentModel.statusLabels, IncidentModel.statusActions, IncidentModel.permissions());
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!IncidentModel.permissions().create) {
+      IncidentView.announce("Tu rol no permite registrar incidentes.");
+      return;
+    }
     if (!validateAll()) {
       IncidentView.announce("El formulario tiene errores. Revisa los campos marcados.");
       return;
@@ -149,13 +155,51 @@ const IncidentController = (() => {
     }
   }
 
-  async function init() {
-    try {
-      await refreshList();
-      IncidentView.announce("Incidentes cargados desde la API.");
-    } catch (error) {
-      IncidentView.announce("Ocurrió un error al cargar los incidentes.");
+  // ---------- Sesión ----------
+  function applySession() {
+    const user = IncidentModel.getUser();
+    IncidentView.renderSession(user, IncidentModel.roleLabels);
+    if (!user) {
+      IncidentView.setFormEnabled(form, false, "Inicia sesión para registrar incidentes.");
+      IncidentView.renderLoggedOut();
+      return false;
     }
+    const canCreate = IncidentModel.permissions().create;
+    IncidentView.setFormEnabled(form, canCreate, canCreate ? "" : "Tu rol (solo lectura) no permite registrar incidentes.");
+    return true;
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    const email = document.getElementById("login-email").value.trim();
+    const passwordField = document.getElementById("login-password");
+
+    try {
+      const user = await IncidentModel.login(email, passwordField.value);
+      passwordField.value = ""; // la contraseña no se conserva en la página
+      applySession();
+      await refreshList();
+      IncidentView.announce(`Sesión iniciada como ${user.name}.`);
+    } catch (error) {
+      passwordField.value = "";
+      IncidentView.showLoginError(error.message);
+      IncidentView.announce(error.message);
+    }
+  }
+
+  function handleLogout() {
+    IncidentModel.logout();
+    applySession();
+    IncidentView.announce("Sesión cerrada.");
+  }
+
+  async function init() {
+    loginForm.addEventListener("submit", handleLogin);
+    logoutButton.addEventListener("click", handleLogout);
+    IncidentModel.setUnauthorizedHandler(() => {
+      applySession();
+      IncidentView.showLoginError("La sesión expiró o no es válida. Inicia sesión de nuevo.");
+    });
 
     form.addEventListener("submit", handleSubmit);
     form.addEventListener("reset", () => IncidentView.resetForm(form));
@@ -163,6 +207,14 @@ const IncidentController = (() => {
     listEl.addEventListener("click", handleAction);
     detailEl.addEventListener("click", handleAction);
     attachLiveValidation();
+
+    if (!applySession()) return;
+    try {
+      await refreshList();
+      IncidentView.announce("Incidentes cargados desde la API.");
+    } catch (error) {
+      IncidentView.announce(error.message);
+    }
   }
 
   return { init };

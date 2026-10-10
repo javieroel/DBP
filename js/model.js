@@ -1,6 +1,86 @@
 const IncidentModel = (() => {
   let incidents = [];
 
+  // ---------- Sesión (JWT) ----------
+  // El token se guarda en sessionStorage: se borra al cerrar la pestaña.
+  // Riesgo conocido: un XSS podría leerlo; por eso la vista escapa todo el HTML
+  // y el servidor envía una Content-Security-Policy que bloquea scripts externos.
+  const SESSION_KEY = "dbp_session";
+  let session = readSession();
+  let onUnauthorized = () => {};
+
+  function readSession() {
+    try {
+      return JSON.parse(sessionStorage.getItem(SESSION_KEY)) || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function saveSession(value) {
+    session = value;
+    try {
+      if (value) sessionStorage.setItem(SESSION_KEY, JSON.stringify(value));
+      else sessionStorage.removeItem(SESSION_KEY);
+    } catch (error) {
+      /* sin almacenamiento: la sesión vive solo en memoria */
+    }
+  }
+
+  function getUser() {
+    return session ? session.user : null;
+  }
+
+  // Qué puede hacer cada rol en la interfaz (el servidor vuelve a comprobarlo: 403)
+  const rolePermissions = {
+    admin: { create: true, status: true, delete: true },
+    analista: { create: true, status: true, delete: false },
+    lector: { create: false, status: false, delete: false }
+  };
+
+  const roleLabels = { admin: "Administrador", analista: "Analista", lector: "Solo lectura" };
+
+  function permissions() {
+    const user = getUser();
+    return (user && rolePermissions[user.role]) || { create: false, status: false, delete: false };
+  }
+
+  function setUnauthorizedHandler(handler) {
+    onUnauthorized = handler;
+  }
+
+  // Todas las peticiones a la API pasan por aquí: se añade "Authorization: Bearer <token>"
+  async function apiFetch(url, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (session && session.token) headers.Authorization = `Bearer ${session.token}`;
+    const response = await fetch(url, { ...options, headers });
+
+    if (response.status === 401 && session) {
+      saveSession(null); // token vencido o inválido: se cierra la sesión
+      onUnauthorized();
+    }
+    return response;
+  }
+
+  async function login(email, password) {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    if (!response.ok) {
+      throw new Error(await parseError(response, "No se pudo iniciar sesión"));
+    }
+    const data = await response.json();
+    saveSession({ token: data.token, user: data.user });
+    return data.user;
+  }
+
+  function logout() {
+    saveSession(null);
+    incidents = [];
+  }
+
   const statusLabels = {
     progress: "En revisión",
     open: "Abierto",
@@ -45,7 +125,7 @@ const IncidentModel = (() => {
   }
 
   async function loadIncidents(filters = {}) {
-    const response = await fetch(`/api/incidentes${buildQuery(filters)}`);
+    const response = await apiFetch(`/api/incidentes${buildQuery(filters)}`);
     if (!response.ok) {
       throw new Error(await parseError(response, "No se pudieron cargar los incidentes"));
     }
@@ -62,7 +142,7 @@ const IncidentModel = (() => {
   }
 
   async function createIncident(data) {
-    const response = await fetch("/api/incidentes", {
+    const response = await apiFetch("/api/incidentes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -84,7 +164,7 @@ const IncidentModel = (() => {
 
   // PATCH: cambia SOLO los campos enviados (aquí, el estado)
   async function patchIncident(id, changes) {
-    const response = await fetch(`/api/incidentes/${encodeURIComponent(id)}`, {
+    const response = await apiFetch(`/api/incidentes/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(changes)
@@ -99,7 +179,7 @@ const IncidentModel = (() => {
 
   // DELETE: elimina el incidente. El servidor responde 204 No Content (sin cuerpo).
   async function deleteIncident(id) {
-    const response = await fetch(`/api/incidentes/${encodeURIComponent(id)}`, {
+    const response = await apiFetch(`/api/incidentes/${encodeURIComponent(id)}`, {
       method: "DELETE"
     });
 
@@ -117,6 +197,12 @@ const IncidentModel = (() => {
     patchIncident,
     deleteIncident,
     statusLabels,
-    statusActions
+    statusActions,
+    login,
+    logout,
+    getUser,
+    permissions,
+    roleLabels,
+    setUnauthorizedHandler
   };
 })();

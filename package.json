@@ -1,6 +1,6 @@
 {
   "name": "dbp-incidentes",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Plataforma de gestión de incidentes - Desarrollo Basado en Plataformas",
   "type": "commonjs",
   "scripts": {
@@ -13,8 +13,13 @@
     "probar": "node scripts/pruebas.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
     "dotenv": "^18.0.5",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.8"

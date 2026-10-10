@@ -322,7 +322,7 @@ npm install
 npm run db:migrate            # crea la tabla
 npm run db:seed               # carga datos de ejemplo
 npm start                     # http://localhost:3000
-npm run probar                # en otra terminal: ejecuta las 23 pruebas
+npm run probar                # en otra terminal: ejecuta las 29 pruebas
 ```
 
 ## Despliegue en el servidor Ubuntu con Docker
@@ -450,5 +450,263 @@ npm run db:reset              # revierte todo, migra y siembra de nuevo
 ## ENTREGA T1S5
 
 En esta quinta entrega se reemplazó el modelo en memoria por PostgreSQL ejecutándose en Docker, accedido mediante el ORM Sequelize. Se definió el modelo `Incident` con validaciones, dos migraciones versionadas, un seeder, CRUD persistente con filtros por estado y prioridad, conexión configurada por variables de entorno y un manejador central que traduce cada excepción a su código HTTP. La plataforma se desplegó con Docker en el servidor Ubuntu del homelab y se comprobó que los datos persisten al recrear los contenedores. Con lo desarrollado hasta este punto realizaremos el commit y push de esta quinta entrega.
+
+___
+
+## Mejoras por retroalimentación: cambio de estado (PATCH) y eliminación (DELETE)
+
+### Observación del docente
+
+> "El front-end consume la API y opera el listado, el alta y la edición Sin embargo, no ofrece controles de cambio de estado ni de eliminación, de modo que el PATCH y el DELETE que expone el servidor quedan sin uso desde el cliente. Sugerencia: agregar los botones de estado y borrado por incidente."
+
+### Qué se implementó
+
+Cada incidente tiene ahora botones de acción, tanto en su tarjeta como en el panel de detalle. Las operaciones viajan por HTTP hasta la API y se guardan en PostgreSQL.
+
+| Estado actual | Botones disponibles |
+|---|---|
+| Abierto | Ver detalle · Pasar a revisión · Marcar resuelto · Eliminar |
+| En revisión | Ver detalle · Devolver a abierto · Marcar resuelto · Eliminar |
+| Resuelto | Ver detalle · Eliminar |
+
+| Acción en la interfaz | Petición HTTP | Respuesta | Sentencia en la base |
+|---|---|---|---|
+| Pasar a revisión / Marcar resuelto / Devolver a abierto | `PATCH /api/incidentes/INC-###` con `{"status": "..."}` | `200 OK` + incidente actualizado | `UPDATE incidents SET status = ...` |
+| Eliminar → Confirmar eliminación | `DELETE /api/incidentes/INC-###` | `204 No Content` | `DELETE FROM incidents WHERE id = ...` |
+
+**Decisiones de diseño**
+
+- `PATCH` modifica solo los campos enviados y es el que usan los botones. `PUT` reemplaza el incidente completo: si faltan campos obligatorios responde `400` y sugiere usar `PATCH`.
+- **Regla de negocio en el servidor.** Antes de cambiar el estado, el controlador consulta el registro actual en la base. **Un incidente resuelto no puede reabrirse**; si se intenta, aunque sea con una petición manual que salte la interfaz, la API responde `409 Conflict`.
+
+  | Desde | Puede pasar a |
+  |---|---|
+  | `open` | `progress`, `closed` |
+  | `progress` | `open`, `closed` |
+  | `closed` | (ninguno) |
+
+- **Eliminación con confirmación en dos pasos.** El primer clic convierte el botón en "Confirmar eliminación" y el segundo borra; si no se confirma en 5 segundos, vuelve a su estado inicial. No se usan ventanas emergentes y el resultado se anuncia con la región ARIA `live-region`.
+- **Accesibilidad.** Las tarjetas dejaron de ser `role="button"`, porque un botón no puede contener otros botones. Ahora cada acción es un `<button>` real, accesible con teclado, agrupado en `role="group"` con `aria-label`.
+
+### Implementación
+
+| Archivo | Qué se agregó |
+|---|---|
+| `src/routes/incidentRoutes.js` | `router.patch("/:id", incidentController.patchIncident)` |
+| `src/models/incidentModel.js` | `STATUS_TRANSITIONS` y `canChangeStatus()`: estados permitidos desde cada estado |
+| `src/controllers/incidentController.js` | `patchIncident` (cambio parcial), `updateIncident` (PUT exige todos los campos) y `checkStatusChange()` (responde 409) |
+| `js/model.js` | `patchIncident()` y `deleteIncident()` con `fetch` (`method: "PATCH"` / `"DELETE"`) |
+| `js/view.js` | `actionsHtml()`: botones según el estado; `askDeleteConfirmation()` |
+| `js/controller.js` | `handleAction()`: un solo manejador para ver detalle, cambiar estado y eliminar |
+| `scripts/pruebas.js` | 6 pruebas nuevas (PATCH, PUT incompleto, 409, PATCH sin campos o inexistente): 29 en total |
+
+Fragmento clave (regla de negocio en `src/models/incidentModel.js`):
+
+```js
+const STATUS_TRANSITIONS = {
+  open: ["progress", "closed"],
+  progress: ["open", "closed"],
+  closed: []            // un incidente resuelto no se reabre -> 409 Conflict
+};
+```
+
+### Evidencias
+
+<p align="center">
+    <img src="assets/repo_images/ui_botones_por_incidente.png" alt="Listado de incidentes con los botones Ver detalle, cambio de estado y Eliminar en cada tarjeta" style="width: 700px;">
+    <br><em>Figura R1. Botones de estado y eliminación en cada incidente.</em>
+</p>
+
+Resultado al cargar la pagina y marcar un incidente como resuelto u luego eliminarlo, evidenciando el uso de PATCH y DELETE cuando solo se actualiza el incidente como tal o se elimina por completo. En este caso actualizamos el incidente 4 y eliminamos el 5 que ya se habia marcado como resuelto. 
+
+<p align="center">
+    <img src="assets/repo_images/ui_red_patch_delete.png" alt="Pestaña Red de las herramientas de desarrollador con una petición PATCH respondida con 200 y una DELETE respondida con 204" style="width: 700px;">
+    <br><em>Figura R2. Desde la interfaz, "Marcar resuelto" envía un PATCH (200 OK) y "Eliminar" envía un DELETE (204 No Content).</em>
+</p>
+
+### Cómo actualizar el servidor después de los cambios
+
+**1. En el PC (utilizando GIT Bash en mi caso):**
+
+```bash
+git add src js css scripts README.md
+git commit -m "Retroalimentación: PATCH y DELETE desde la interfaz y regla de transición de estados"
+git push origin main
+```
+
+**2. En el servidor (por SSH, ya que tengo un servidor local que es funcional y esta ya configurado con postgreSQL):**
+
+```bash
+ssh usuario@IP_DEL_SERVIDOR
+cd ~/DBP
+git pull                                       # trae el código nuevo
+docker compose --profile full up -d --build    # reconstruye la API y levanta todo
+docker compose ps                              # los tres contenedores "Up", la base "(healthy)"
+docker compose logs app --tail 5               # "Conectado a PostgreSQL" y "Servidor Express disponible"
+```
+
+**3. En el navegador:** `http://IP_DEL_SERVIDOR:3000`, con **Ctrl + F5** para no usar el JavaScript guardado en caché.
+
+> El front y el back se levantan juntos: el contenedor `incidentes_api` ejecuta `app.js`, que sirve la interfaz (`express.static`) y la API (`/api/incidentes`).
+
+> Si un contenedor se detuvo con `docker compose stop`, `restart: unless-stopped` no lo vuelve a encender, ni siquiera tras reiniciar el servidor. `docker compose --profile full up -d` lo levanta de nuevo.
+
+### Consultar la base de datos
+
+Desde el servidor (por SSH), dentro de `~/DBP`:
+
+```bash
+docker compose exec db psql -U incidentes_app -d incidentes_db
+```
+
+```sql
+\dt                                                    -- tablas: incidents, sequelize_meta, sequelize_data
+SELECT * FROM sequelize_meta;                          -- migraciones aplicadas
+SELECT id, title, status FROM incidents ORDER BY id;   -- registros
+\q                                                     -- salir
+```
+
+No pide contraseña porque `docker compose exec` entra al propio contenedor de la base, y PostgreSQL confía en sus conexiones locales. Desde la red no es posible: el puerto 5432 solo escucha en `127.0.0.1` del servidor.
+
+| Prompt | Dónde se está | Uso |
+|---|---|---|
+| `PS C:\...>` o `MINGW64` | PC | git, npm, abrir SSH |
+| `usuario@servidor:~/DBP$` | Servidor | git pull, docker compose |
+| `incidentes_db=#` | Dentro de PostgreSQL | SQL y comandos `\` |
+Toda esta información ayuda como una guía preliminar y breve de como se debe administrar la plataforma y de esta manera, ya podemos hacer consultas con SQL para explorar el contenido almacenado o generado por la misma.
+___
+
+## Instrucciones T1S6
+
+Fortalezca la plataforma de incidentes. Proteja rutas con JWT y roles, aplique hash de contraseñas, configure CORS, documente HTTPS, valide y limpie entradas. Integre el cliente con la API y pruebe crear, consultar, actualizar y eliminar. Registre al menos ocho casos, incluidos accesos sin token, permisos insuficientes y datos inválidos. Entregue código, evidencias y un informe de 800 a 1000 palabras con fallos encontrados y mejoras realizadas.
+
+## Fallos encontrados
+
+| # | Fallo en la versión anterior | Riesgo |
+|---|---|---|
+| 1 | La API no pedía identificación: cualquier equipo de la red podía crear, modificar o borrar incidentes | Control de acceso roto (OWASP A01) |
+| 2 | No existían roles: todos podían hacer todo | Escalada de privilegios |
+| 3 | El texto con HTML (`<script>`, `<img onerror>`) se guardaba tal cual; solo lo frenaba el escape de la vista | XSS almacenado |
+| 4 | Sin cabeceras de seguridad (CSP, X-Frame-Options, nosniff) | XSS, clickjacking |
+| 5 | Sin política CORS explícita | Uso de la API desde sitios no autorizados |
+| 6 | Tráfico en HTTP plano | Credenciales y tokens legibles en la red |
+
+## Mejoras realizadas
+
+| Mejora | Dónde |
+|---|---|
+| **Login con JWT** (HS256, expira en 1 h, emisor y audiencia verificados; se rechaza `alg: none`) | `src/services/authService.js`, `src/routes/authRoutes.js` |
+| **Contraseñas con hash bcrypt** (12 rondas). La tabla `users` solo guarda el hash; un `CHECK` impide texto plano | `migrations/20261009000003-create-users.js`, `seeders/20261009000002-demo-users.js` |
+| **Mismo mensaje para correo inexistente o contraseña incorrecta**, con comparación contra un hash de relleno para no revelar qué correos existen | `src/services/authService.js` |
+| **Límite de intentos de login**: 10 fallos por IP cada 15 minutos (`429`) | `src/routes/authRoutes.js` |
+| **Rutas protegidas con token** (`401`) **y roles** (`403`) | `src/middleware/auth.js`, `src/routes/incidentRoutes.js` |
+| **Limpieza de entradas**: quita etiquetas HTML, caracteres de control y claves `__proto__` antes de validar | `src/middleware/sanitize.js` |
+| **CORS**: solo la propia interfaz y los orígenes de `CORS_ORIGINS`; el resto recibe `403` | `app.js` |
+| **Cabeceras de seguridad con Helmet** (CSP, X-Frame-Options, nosniff, Referrer-Policy; HSTS con HTTPS) | `app.js` |
+| **HTTPS con Caddy** como proxy inverso (perfil opcional) | `deploy/Caddyfile`, `docker-compose.yml` |
+| **Cliente integrado**: inicio y cierre de sesión, token en cada `fetch`, botones según el rol y cierre automático de sesión ante un `401` | `index.html`, `js/model.js`, `js/view.js`, `js/controller.js` |
+
+### Roles y permisos
+
+| Acción | Ruta | admin | analista | lector |
+|---|---|:-:|:-:|:-:|
+| Consultar | `GET /api/incidentes`, `GET /api/incidentes/:id` | ✅ | ✅ | ✅ |
+| Crear | `POST /api/incidentes` | ✅ | ✅ | ❌ 403 |
+| Cambiar estado | `PATCH /api/incidentes/:id` | ✅ | ✅ | ❌ 403 |
+| Reemplazar | `PUT /api/incidentes/:id` | ✅ | ❌ 403 | ❌ 403 |
+| Eliminar | `DELETE /api/incidentes/:id` | ✅ | ❌ 403 | ❌ 403 |
+
+Sin token, o con un token inválido, cualquier ruta de incidentes responde `401`. `GET /api/salud` y `POST /api/auth/login` son públicas.
+
+### Casos de prueba registrados
+
+El script `npm run probar` ejecuta 39 casos. Estos son los más representativos:
+
+| # | Caso | Esperado | Obtenido |
+|---|---|:-:|:-:|
+| 1 | Consultar incidentes sin token | 401 | 401 |
+| 2 | Token firmado con otra clave (rol admin falso) | 401 | 401 |
+| 3 | Token sin firma (`alg: none`) | 401 | 401 |
+| 4 | Token de lector modificado a rol admin | 401 | 401 |
+| 5 | Login con contraseña incorrecta | 401 | 401 |
+| 6 | Lector intenta crear un incidente | 403 | 403 |
+| 7 | Analista intenta eliminar un incidente | 403 | 403 |
+| 8 | Crear con correo y categoría inválidos | 400 | 400 |
+| 9 | Título con `<script>` | 201, guardado sin etiquetas | 201 |
+| 10 | Búsqueda con `' OR '1'='1` | 200, 0 resultados | 200 |
+| 11 | Petición desde un origen no autorizado (CORS) | 403 | 403 |
+| 12 | CRUD completo con los roles correctos | 201 / 200 / 200 / 204 | ✅ |
+
+### Evidencias
+
+<p align="center">
+    <img src="assets/repo_images/ui_sesion_lector.png" alt="Interfaz con la sesión iniciada como lector: formulario bloqueado y sin botones de cambio de estado ni eliminación" style="width: 700px;">
+    <br><em>Figura S1. Integración cliente-API: con el rol lector el formulario se bloquea y solo se puede consultar.</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/pruebas_seguridad_39.png" alt="Resultado del script de pruebas: 39 de 39 casos de autenticación, permisos, validación y CORS con el código HTTP esperado" style="width: 700px;">
+    <br><em>Figura S2. Pruebas contra el servidor: accesos sin token (401), permisos insuficientes (403), datos inválidos (400) y CORS (403).</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/usuarios_hash_bcrypt.png" alt="Consulta psql de la tabla users donde las contraseñas aparecen como hash bcrypt" style="width: 700px;">
+    <br><em>Figura S3. Las contraseñas se almacenan como hash bcrypt, nunca en texto plano.</em>
+</p>
+
+## HTTPS
+
+La aplicación habla HTTP en el puerto 3000. Para cifrar el tráfico se añadió **Caddy** como proxy inverso: el navegador se conecta por HTTPS (puerto 443) a Caddy, y Caddy reenvía la petición a la API por la red interna de Docker.
+
+```
+Navegador ──HTTPS:443──> Caddy ──HTTP (red interna de Docker)──> API :3000 ──> PostgreSQL
+```
+
+- `tls internal`: Caddy crea su propia autoridad certificadora (CA) local, adecuada para una red de casa o de laboratorio. El navegador avisará hasta que se instale el certificado raíz de esa CA.
+- En un servidor con dominio público basta con quitar `tls internal` y poner el dominio en `SITE_ADDRESS`: Caddy obtiene y renueva solo un certificado de Let's Encrypt.
+- Con `HTTPS_PROXY_ENABLED=true` la API añade **HSTS** (obliga al navegador a usar siempre HTTPS) y la directiva CSP `upgrade-insecure-requests`.
+- Con `APP_PORT=127.0.0.1:3000` el puerto HTTP deja de estar expuesto a la red; solo se entra por HTTPS.
+
+Activación en el servidor:
+
+```bash
+# en .env: HTTPS_PROXY_ENABLED=true, APP_PORT=127.0.0.1:3000, SITE_ADDRESS=IP_DEL_SERVIDOR
+docker compose --profile full --profile https up -d --build
+# Abrir https://IP_DEL_SERVIDOR
+# Certificado raíz para instalarlo en el PC (opcional, quita el aviso del navegador):
+docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+```
+
+## Actualización del servidor para la Unidad 6
+
+```bash
+cd ~/DBP && git pull
+
+# Agregar al .env las variables nuevas (la clave JWT se genera aleatoria)
+cat >> .env <<EOF2
+JWT_SECRET=$(openssl rand -hex 32)
+JWT_EXPIRES_IN=1h
+CORS_ORIGINS=http://IP_DEL_SERVIDOR:3000
+HTTPS_PROXY_ENABLED=false
+SEED_ADMIN_PASSWORD=<clave-admin>
+SEED_ANALISTA_PASSWORD=<clave-analista>
+SEED_LECTOR_PASSWORD=<clave-lector>
+EOF2
+
+docker compose --profile full up -d --build           # aplica la migración 3 (tabla users)
+docker compose exec app npx sequelize-cli db:seed:all  # crea los 3 usuarios con hash bcrypt
+```
+
+Usuarios creados: `admin@incidentes.local`, `analista@incidentes.local` y `lector@incidentes.local`, con las contraseñas definidas en el `.env` del servidor (que nunca se sube a Git).
+
+Ejecutar las pruebas desde el PC:
+
+```bash
+API_URL=http://IP_DEL_SERVIDOR:3000 ADMIN_PASSWORD=... ANALISTA_PASSWORD=... LECTOR_PASSWORD=... npm run probar
+```
+
+## ENTREGA T1S6
+
+En esta sexta entrega la plataforma pasó de una API abierta a una API protegida: autenticación con JWT, contraseñas con hash bcrypt, autorización por roles, limpieza y validación de entradas, política CORS, cabeceras de seguridad y HTTPS mediante Caddy. El cliente web se integró con este esquema (inicio de sesión, token en cada petición y botones según el rol), y 39 casos de prueba verifican el funcionamiento correcto y el rechazo de accesos sin token, permisos insuficientes y datos inválidos.
 
 ___

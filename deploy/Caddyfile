@@ -1,0 +1,10 @@
+# Proxy inverso HTTPS delante de la API (Unidad 6).
+# Caddy cifra la conexión del navegador y reenvía la petición a la API por la red interna de Docker.
+# "tls internal": Caddy crea su propia autoridad certificadora (CA) local; sirve para una red de casa
+# o de laboratorio. En un dominio público se quita esa línea y Caddy obtiene un certificado de Let's Encrypt.
+{$SITE_ADDRESS:localhost} {
+	tls internal
+	encode gzip
+	reverse_proxy {$UPSTREAM:app:3000}
+	header -Server
+}

@@ -31,18 +31,20 @@ const IncidentView = (() => {
   }
 
   // Botones de acción de un incidente (se usan en la tarjeta y en el detalle)
-  function actionsHtml(incident, statusActions, { withView = false } = {}) {
+  function actionsHtml(incident, statusActions, perms, { withView = false } = {}) {
     const id = escapeHtml(incident.id);
     const viewButton = withView
       ? `<button class="button button-small button-secondary" type="button" data-action="view" data-id="${id}">Ver detalle</button>`
       : "";
-    const statusButtons = (statusActions[incident.status] || [])
+    const statusButtons = (perms.status ? statusActions[incident.status] || [] : [])
       .map(
         (action) =>
           `<button class="button button-small button-secondary" type="button" data-action="set-status" data-id="${id}" data-status="${action.to}">${action.label}</button>`
       )
       .join("");
-    const deleteButton = `<button class="button button-small button-danger" type="button" data-action="delete" data-id="${id}">Eliminar</button>`;
+    const deleteButton = perms.delete
+      ? `<button class="button button-small button-danger" type="button" data-action="delete" data-id="${id}">Eliminar</button>`
+      : "";
 
     return `
       <div class="incident-actions" role="group" aria-label="Acciones para ${id}">
@@ -51,7 +53,7 @@ const IncidentView = (() => {
     `;
   }
 
-  function renderList(incidents, statusLabels, statusActions) {
+  function renderList(incidents, statusLabels, statusActions, perms) {
     listEl.innerHTML = "";
     countEl.textContent = `${incidents.length} registro${incidents.length !== 1 ? "s" : ""}`;
 
@@ -77,13 +79,13 @@ const IncidentView = (() => {
           <span>${escapeHtml(priorityLabels[incident.priority] || incident.priority)}</span>
           <span>${formatDate(incident.date)}</span>
         </div>
-        ${actionsHtml(incident, statusActions, { withView: true })}
+        ${actionsHtml(incident, statusActions, perms, { withView: true })}
       `;
       listEl.appendChild(article);
     });
   }
 
-  function renderDetail(incident, statusLabels, statusActions) {
+  function renderDetail(incident, statusLabels, statusActions, perms) {
     if (!incident) {
       detailEl.innerHTML = `<p>Selecciona un incidente de la lista para ver su detalle.</p>`;
       return;
@@ -102,7 +104,7 @@ const IncidentView = (() => {
         <h3>Descripción</h3>
         <p>${escapeHtml(incident.description)}</p>
       </div>
-      ${actionsHtml(incident, statusActions)}
+      ${actionsHtml(incident, statusActions, perms)}
     `;
   }
 
@@ -150,7 +152,47 @@ const IncidentView = (() => {
     }, 5000);
   }
 
+  // ---------- Sesión ----------
+  const loginBox = document.getElementById("login-box");
+  const userBox = document.getElementById("user-box");
+  const loginError = document.getElementById("login-error");
+  const formNote = document.getElementById("form-permission-note");
+
+  function renderSession(user, roleLabels) {
+    loginBox.hidden = Boolean(user);
+    userBox.hidden = !user;
+    loginError.hidden = true;
+    if (user) {
+      document.getElementById("user-name").textContent = user.name;
+      document.getElementById("user-role").textContent = roleLabels[user.role] || user.role;
+    }
+  }
+
+  function showLoginError(message) {
+    loginError.textContent = message;
+    loginError.hidden = false;
+  }
+
+  function renderLoggedOut() {
+    listEl.innerHTML = `<p class="empty-state">Inicia sesión para consultar los incidentes.</p>`;
+    countEl.textContent = "—";
+    detailEl.innerHTML = `<p>Inicia sesión para ver el detalle de los incidentes.</p>`;
+  }
+
+  // Habilita o bloquea el formulario de registro según el rol
+  function setFormEnabled(formEl, enabled, message) {
+    formEl.querySelectorAll("input, select, textarea, button").forEach((el) => {
+      el.disabled = !enabled;
+    });
+    formNote.textContent = message || "";
+    formNote.hidden = !message;
+  }
+
   return {
+    renderSession,
+    showLoginError,
+    renderLoggedOut,
+    setFormEnabled,
     renderList,
     askDeleteConfirmation,
     renderDetail,

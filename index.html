@@ -38,6 +38,7 @@
             </div>
           </div>
 
+          <p id="form-permission-note" class="permission-note" hidden></p>
           <form class="incident-form" id="incident-form" novalidate>
             <div class="form-grid">
               <div class="form-field form-field-wide">
@@ -129,7 +130,32 @@
         </section>
       </div>
 
-      <aside class="sidebar" aria-label="Detalle del último ticket">
+      <aside class="sidebar" aria-label="Sesión y detalle del ticket">
+        <section class="panel session-panel" aria-labelledby="session-title">
+          <p class="eyebrow">Acceso</p>
+          <h2 id="session-title">Sesión</h2>
+
+          <div id="login-box">
+            <form id="login-form" class="login-form" novalidate>
+              <div class="form-field">
+                <label for="login-email">Correo</label>
+                <input id="login-email" name="email" type="email" autocomplete="username" required maxlength="120" placeholder="usuario@incidentes.local">
+              </div>
+              <div class="form-field">
+                <label for="login-password">Contraseña</label>
+                <input id="login-password" name="password" type="password" autocomplete="current-password" required maxlength="72">
+              </div>
+              <p id="login-error" class="field-error" role="alert" hidden></p>
+              <button class="button button-primary button-full" type="submit">Iniciar sesión</button>
+            </form>
+          </div>
+
+          <div id="user-box" hidden>
+            <p class="session-user"><strong id="user-name"></strong> <span class="badge badge-role" id="user-role"></span></p>
+            <button class="button button-secondary button-full" id="logout-btn" type="button">Cerrar sesión</button>
+          </div>
+        </section>
+
         <div class="panel detail-panel" id="detail-panel-content">
           <p>Cargando incidente...</p>
         </div>

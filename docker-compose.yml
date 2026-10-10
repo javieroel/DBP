@@ -1,6 +1,7 @@
 # Servicios Docker del proyecto.
 #   Desarrollo (PC con Docker Desktop):   docker compose up -d db adminer
 #   Todo en contenedores (Ubuntu Server): docker compose --profile full up -d --build
+#   Con HTTPS (proxy Caddy):              docker compose --profile full --profile https up -d --build
 # Las credenciales se leen del archivo .env (no se escriben aquí).
 services:
   db:
@@ -46,7 +47,27 @@ services:
       db:
         condition: service_healthy
     ports:
+      # Con HTTPS activo use APP_PORT=127.0.0.1:3000 para que la API solo se alcance a través de Caddy
       - "${APP_PORT:-3000}:3000"
+
+  caddy:
+    # Proxy inverso HTTPS (Unidad 6). Cifra el tráfico entre el navegador y la plataforma.
+    profiles: ["https"]
+    image: caddy:2-alpine
+    container_name: incidentes_https
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    ports:
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data     # certificados y la CA local de Caddy
+      - caddy_config:/config
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
