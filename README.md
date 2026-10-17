@@ -727,10 +727,10 @@ Revise la plataforma de incidentes. Documente y corrija al menos dos defectos co
 | Defecto 2: fecha futura en el formulario | Solo la rechazaba el servidor (`400`) | Validación en el navegador + atributo `max`; no se envía la petición |
 | ESLint | 10 problemas (10 errores) | 0 problemas (1 regla justificada) |
 | Pruebas unitarias (Jest) | No existían | 48 pruebas, 3 suites, 83,8 % de sentencias cubiertas |
-| Consulta `?q=` sobre 20 000 filas | 45,4 ms (`Seq Scan`) | 0,04 ms (`Bitmap Index Scan`, pg_trgm) |
-| Imagen del logo | `LOGO.png` 440×440, 209 933 B | `logo-64.webp` 64×64, 3 754 B (−98 %) |
-| Carga inicial de la página | 254 352 B transferidos | 24 851 B (−90 %) |
-| `GET /api/incidentes` (66 registros) | 23 748 B | 1 873 B con compresión (−92 %) |
+| Consulta `?q=` sobre 20 000 filas (servidor) | 46,19 ms (`Seq Scan`) | 0,08 ms (`Bitmap Index Scan`, pg_trgm) |
+| Imagen del logo (transferido) | `LOGO.png` 440×440, 211 kB | `logo-64.webp` 64×64, 10,4 kB (−95 %) |
+| Carga de la página (servidor, 4G lenta) | 258,5 kB | 38,2 kB (−85 %); favicon 404 → 200 |
+| `GET /api/incidentes` | 3,1 kB | 1,7 kB con compresión |
 
 Los reportes completos están en la carpeta `reportes/`.
 
@@ -786,9 +786,9 @@ Configuración en `eslint.config.js`: reglas recomendadas más `eqeqeq`, `no-var
 
 | Consulta | Antes | Después |
 |---|---|---|
-| Listado (`ORDER BY date DESC, id DESC LIMIT 100`) | 0,08 ms · Incremental Sort + Index Scan | 0,04 ms · Index Scan |
-| Filtro `status = 'open'` | 0,17 ms · Incremental Sort + Index Scan | 0,05 ms · Index Scan |
-| Búsqueda `?q=phishing` | 45,40 ms · Seq Scan | 0,04 ms · Bitmap Index Scan |
+| Listado (`ORDER BY date DESC, id DESC LIMIT 100`) | 0,16 ms · Incremental Sort + Index Scan | 0,10 ms · Index Scan |
+| Filtro `status = 'open'` | 0,22 ms · Incremental Sort + Index Scan | 0,08 ms · Index Scan |
+| Búsqueda `?q=phishing` | 46,19 ms · Seq Scan | 0,08 ms · Bitmap Index Scan |
 
 **Imagen.** El logo se mostraba a 32 px pero se descargaba a 440×440 px (205 kB). Se generó una versión WebP de 64×64 px (2× para pantallas de alta densidad), con `width` y `height` en el `<img>` para evitar saltos de diseño.
 
@@ -815,18 +815,18 @@ El comportamiento no cambió: las 39 pruebas de integración siguen pasando desp
 </p>
 
 <p align="center">
-    <img src="assets/repo_images/red_carga_antes_despues.png" alt="Pestaña Red con los bytes transferidos al cargar la página antes y después de las mejoras" style="width: 700px;">
-    <br><em>Figura T2. Carga de la página antes y después: logo optimizado y compresión de texto.</em>
+    <img src="assets/repo_images/lint_y_jest.png" alt="Terminal de Git Bash con npm run lint sin problemas y npm test con 3 suites y 48 pruebas aprobadas" style="width: 600px;">
+    <br><em>Figura T2. ESLint sin problemas y 48 pruebas unitarias aprobadas en 3 suites.</em>
 </p>
 
 <p align="center">
-    <img src="assets/repo_images/lint_y_jest.png" alt="Terminal con npm run lint sin problemas y npm test con 48 pruebas aprobadas" style="width: 700px;">
-    <br><em>Figura T3. ESLint sin problemas y 48 pruebas unitarias aprobadas.</em>
+    <img src="assets/repo_images/medicion_consulta.png" alt="Resultado de npm run medir:consulta en el servidor: la búsqueda pasa de Seq Scan con 46,19 ms a Bitmap Index Scan con 0,08 ms" style="width: 700px;">
+    <br><em>Figura T3. Medición en el servidor: la búsqueda de texto baja de 46,19 ms (Seq Scan) a 0,08 ms (Bitmap Index Scan).</em>
 </p>
 
 <p align="center">
-    <img src="assets/repo_images/medicion_consulta.png" alt="Resultado de npm run medir:consulta con el plan y el tiempo de cada consulta antes y después" style="width: 700px;">
-    <br><em>Figura T4. Medición de la consulta en el servidor: la búsqueda pasa de Seq Scan a Bitmap Index Scan.</em>
+    <img src="assets/repo_images/red_carga_antes_despues.png" alt="Pestaña Red antes y después: LOGO.png de 211 kB reemplazado por logo-64.webp, archivos de texto comprimidos y favicon que pasa de 404 a 200" style="width: 700px;">
+    <br><em>Figura T4. Pestaña Red antes y después: logo de 211 kB a 10,4 kB, CSS y JS comprimidos y favicon corregido (404 → 200).</em>
 </p>
 
 ## Actualización del servidor para la Unidad 7
