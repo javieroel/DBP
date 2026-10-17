@@ -22,8 +22,22 @@ const IncidentController = (() => {
       if (!pattern.test(value)) return "Ingresa un correo electrónico válido.";
       return "";
     },
-    date: (value) => (value === "" ? "Selecciona la fecha del incidente." : "")
+    date: (value) => {
+      if (value === "") return "Selecciona la fecha del incidente.";
+      // Defecto 2 corregido: antes una fecha futura solo la rechazaba el servidor (400)
+      if (value > todayLocal()) return "La fecha no puede estar en el futuro.";
+      return "";
+    }
   };
+
+  // Fecha de hoy en la zona horaria del usuario, con formato YYYY-MM-DD
+  function todayLocal() {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  }
+
+  let submitting = false; // Defecto 1 corregido: evita envíos repetidos del formulario
 
   function currentFilters() {
     return {
@@ -92,6 +106,9 @@ const IncidentController = (() => {
       date: document.getElementById("date").value
     };
 
+    if (submitting) return; // ya hay un envío en curso
+    submitting = true;
+    IncidentView.setSubmitting(form, true);
     try {
       const created = await IncidentModel.createIncident(data);
       await refreshList(created.id);
@@ -99,6 +116,9 @@ const IncidentController = (() => {
       IncidentView.announce(`Incidente ${created.id} registrado en el servidor.`);
     } catch (error) {
       IncidentView.announce(error.message);
+    } finally {
+      submitting = false;
+      IncidentView.setSubmitting(form, false);
     }
   }
 
@@ -194,6 +214,7 @@ const IncidentController = (() => {
   }
 
   async function init() {
+    document.getElementById("date").max = todayLocal(); // el calendario no ofrece fechas futuras
     loginForm.addEventListener("submit", handleLogin);
     logoutButton.addEventListener("click", handleLogout);
     IncidentModel.setUnauthorizedHandler(() => {

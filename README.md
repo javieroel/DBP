@@ -714,3 +714,131 @@ API_URL=http://IP_DEL_SERVIDOR:3000 ADMIN_PASSWORD=... ANALISTA_PASSWORD=... LEC
 En esta sexta entrega la plataforma pasó de una API abierta a una API protegida: autenticación con JWT, contraseñas con hash bcrypt, autorización por roles, limpieza y validación de entradas, política CORS, cabeceras de seguridad y HTTPS mediante Caddy. El cliente web se integró con este esquema (inicio de sesión, token en cada petición y botones según el rol) y se mejoró la experiencia de usuario manteniendo visible el detalle del ticket. 39 casos de prueba verifican el funcionamiento correcto y el rechazo de accesos sin token, permisos insuficientes y datos inválidos.
 
 ___
+
+## Instrucciones T1S7
+
+Revise la plataforma de incidentes. Documente y corrija al menos dos defectos con DevTools; implemente pruebas unitarias para reglas de negocio; configure ESLint y atienda su reporte; mida una consulta, una imagen y una solicitud de red; aplique mejoras verificables; refactorice un módulo bajo MVC y actualice el README. Entregue código, reportes, capturas y un informe de 800 a 1000 palabras con resultados antes y después.
+
+## Resumen de resultados (antes → después)
+
+| Área | Antes | Después |
+|---|---|---|
+| Defecto 1: doble clic en "Guardar" con red lenta | 2 `POST` → incidente duplicado | 1 `POST`; el botón se bloquea ("Guardando…") |
+| Defecto 2: fecha futura en el formulario | Solo la rechazaba el servidor (`400`) | Validación en el navegador + atributo `max`; no se envía la petición |
+| ESLint | 10 problemas (10 errores) | 0 problemas (1 regla justificada) |
+| Pruebas unitarias (Jest) | No existían | 48 pruebas, 3 suites, 83,8 % de sentencias cubiertas |
+| Consulta `?q=` sobre 20 000 filas | 45,4 ms (`Seq Scan`) | 0,04 ms (`Bitmap Index Scan`, pg_trgm) |
+| Imagen del logo | `LOGO.png` 440×440, 209 933 B | `logo-64.webp` 64×64, 3 754 B (−98 %) |
+| Carga inicial de la página | 254 352 B transferidos | 24 851 B (−90 %) |
+| `GET /api/incidentes` (66 registros) | 23 748 B | 1 873 B con compresión (−92 %) |
+
+Los reportes completos están en la carpeta `reportes/`.
+
+## 1. Depuración con DevTools
+
+**Defecto 1: envío repetido del formulario.**
+- **Pasos:** iniciar sesión como analista, abrir DevTools → Red, limitar la red a "4G lenta", llenar el formulario y pulsar dos veces "Guardar incidente".
+- **Esperado:** un incidente. **Obtenido:** dos `POST /api/incidentes` con `201` y dos incidentes iguales.
+- **Causa:** `handleSubmit` (`js/controller.js`) no impedía un segundo envío mientras el primero seguía en curso.
+- **Corrección:** una bandera `submitting` y `IncidentView.setSubmitting()` (`js/view.js`), que deshabilita el botón, muestra "Guardando…" y marca el formulario con `aria-busy`.
+
+**Defecto 2: fecha futura aceptada por el formulario.**
+- **Pasos:** elegir una fecha posterior a hoy y guardar.
+- **Obtenido:** la petición llegaba al servidor y volvía `400`, sin aviso junto al campo.
+- **Causa:** el validador del cliente solo comprobaba que la fecha no estuviera vacía.
+- **Corrección:** el validador compara con la fecha local de hoy y el campo recibe `max` al iniciar. La validación del servidor se mantiene.
+
+**Defecto menor:** el navegador pedía `/favicon.ico` y recibía `404` (visible en Console). Se añadió `favicon-32.png`.
+
+## 2. Pruebas unitarias con Jest
+
+```bash
+npm test                 # ejecuta las pruebas
+npm run test:cobertura   # con reporte de cobertura
+```
+
+| Archivo | Qué prueba |
+|---|---|
+| `tests/incidentService.test.js` | Transiciones de estado (reabrir un resuelto → 409), formato `INC-###`, filtros y paginación, campos obligatorios de PUT y casos de uso con el modelo simulado (`jest.mock`) |
+| `tests/security.test.js` | Limpieza de entradas, JWT (rol modificado, `alg: none`, otra clave) y middlewares `authenticate` / `authorize` |
+| `tests/errorHandler.test.js` | Cada excepción con su código (400, 404, 409, 500, 503), sin revelar mensajes internos |
+
+Las pruebas unitarias no usan la base de datos: el modelo se reemplaza por funciones simuladas. Las pruebas de integración contra el servidor siguen en `npm run probar` (39 casos).
+
+## 3. Análisis estático con ESLint
+
+```bash
+npm run lint       # reporta
+npm run lint:fix   # corrige automáticamente lo seguro
+```
+
+Configuración en `eslint.config.js`: reglas recomendadas más `eqeqeq`, `no-var`, `prefer-const` y `no-unused-vars`, con entornos separados para Node (back-end) y navegador (front-end).
+
+| Hallazgo | Cantidad | Tratamiento |
+|---|:-:|---|
+| Variable de `catch` sin usar | 5 | Se usa `catch {}` sin variable (ES2019) |
+| Objetos del patrón módulo (`IncidentModel`, `IncidentView`, `IncidentController`) declarados como globales y redeclarados | 4 | Cada archivo los exporta con `/* exported */` y solo el controlador los recibe como globales de solo lectura |
+| Caracteres de control en una expresión regular (`sanitize.js`) | 1 | **Justificado**: eliminarlos es el objetivo de esa función. Se desactiva solo esa línea, con el motivo escrito |
+
+## 4. Rendimiento
+
+**Consulta.** `npm run medir:consulta` (en el servidor: `docker compose exec app npm run medir:consulta`) ejecuta `EXPLAIN ANALYZE` de las consultas reales de la API sobre 20 000 filas temporales dentro de una transacción que se revierte, así que la base no cambia. La **migración 4** reemplaza los índices simples por índices compuestos que siguen el orden de la consulta e índices de trigramas (`pg_trgm`) para la búsqueda de texto.
+
+| Consulta | Antes | Después |
+|---|---|---|
+| Listado (`ORDER BY date DESC, id DESC LIMIT 100`) | 0,08 ms · Incremental Sort + Index Scan | 0,04 ms · Index Scan |
+| Filtro `status = 'open'` | 0,17 ms · Incremental Sort + Index Scan | 0,05 ms · Index Scan |
+| Búsqueda `?q=phishing` | 45,40 ms · Seq Scan | 0,04 ms · Bitmap Index Scan |
+
+**Imagen.** El logo se mostraba a 32 px pero se descargaba a 440×440 px (205 kB). Se generó una versión WebP de 64×64 px (2× para pantallas de alta densidad), con `width` y `height` en el `<img>` para evitar saltos de diseño.
+
+**Red.** Se añadió compresión (`compression`: Brotli o gzip) para HTML, CSS, JS y JSON. Las imágenes se guardan 7 días en caché; CSS y JS se revalidan con ETag (`304` si no cambiaron). Las respuestas de la API llevan `Cache-Control: no-store` porque contienen datos privados.
+
+## 5. Refactorización bajo MVC
+
+El controlador de incidentes mezclaba HTTP, validaciones y reglas de negocio (145 líneas). Se separó en tres capas:
+
+| Capa | Archivo | Responsabilidad |
+|---|---|---|
+| Controlador | `src/controllers/incidentController.js` (46 líneas) | Leer la petición y responder con el código HTTP |
+| Servicio | `src/services/incidentService.js` | Reglas de negocio: transiciones de estado, formato del id, filtros, campos obligatorios; coordina al modelo |
+| Modelo / repositorio | `src/models/incidentModel.js` | Solo consultas a PostgreSQL con Sequelize |
+| Constantes | `src/constants/incident.js` | Valores permitidos y transiciones, compartidos por el modelo, el servicio y las pruebas |
+
+El comportamiento no cambió: las 39 pruebas de integración siguen pasando después de la refactorización, y las reglas ahora se prueban de forma aislada con Jest.
+
+### Evidencias
+
+<p align="center">
+    <img src="assets/repo_images/red_doble_post_antes.png" alt="Pestaña Red con dos peticiones POST a incidentes, ambas 201 Created y de unos 612 ms, originadas en model.js tras un doble clic en Guardar" style="width: 700px;">
+    <br><em>Figura T1. Defecto 1 (antes): con la red limitada a 4G lenta, un doble clic envía dos POST (201) desde model.js y duplica el incidente.</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/red_carga_antes_despues.png" alt="Pestaña Red con los bytes transferidos al cargar la página antes y después de las mejoras" style="width: 700px;">
+    <br><em>Figura T2. Carga de la página antes y después: logo optimizado y compresión de texto.</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/lint_y_jest.png" alt="Terminal con npm run lint sin problemas y npm test con 48 pruebas aprobadas" style="width: 700px;">
+    <br><em>Figura T3. ESLint sin problemas y 48 pruebas unitarias aprobadas.</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/medicion_consulta.png" alt="Resultado de npm run medir:consulta con el plan y el tiempo de cada consulta antes y después" style="width: 700px;">
+    <br><em>Figura T4. Medición de la consulta en el servidor: la búsqueda pasa de Seq Scan a Bitmap Index Scan.</em>
+</p>
+
+## Actualización del servidor para la Unidad 7
+
+```bash
+cd ~/DBP && git pull
+docker compose --profile full up -d --build      # aplica la migración 4 al arrancar
+docker compose exec app npm run medir:consulta   # medición de la consulta
+```
+
+## ENTREGA T1S7
+
+En esta séptima entrega se pasó de "parece funcionar" a "se puede demostrar que funciona mejor". Se depuraron y corrigieron dos defectos con DevTools, se añadieron 48 pruebas unitarias con Jest para las reglas de negocio y de seguridad, se configuró ESLint (de 10 problemas a 0), se midieron y mejoraron una consulta, una imagen y las solicitudes de red, y se refactorizó el módulo de incidentes en controlador, servicio y modelo sin cambiar su comportamiento.
+
+___

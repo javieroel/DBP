@@ -1,0 +1,92 @@
+PASS tests/security.test.js
+  Limpieza de entradas
+    ✓ elimina bloques <script> y etiquetas HTML (5 ms)
+    ✓ elimina caracteres de control y espacios sobrantes (1 ms)
+    ✓ descarta __proto__ y no modifica la contraseña (1 ms)
+  Tokens JWT
+    ✓ un token emitido por el servidor se verifica (7 ms)
+    ✓ un token con el rol modificado se rechaza (16 ms)
+    ✓ un token sin firma (alg "none") se rechaza (2 ms)
+    ✓ un token firmado con otra clave se rechaza (3 ms)
+  Middleware authenticate
+    ✓ sin encabezado Authorization responde 401 (2 ms)
+    ✓ con token válido carga el usuario desde la base (4 ms)
+  Middleware authorize (roles)
+    ✓ permite la acción a un rol autorizado (4 ms)
+    ✓ responde 403 a un rol sin permiso (17 ms)
+
+PASS tests/incidentService.test.js
+  Regla de transición de estados
+    ✓ permite pasar de open a progress (1 ms)
+    ✓ permite pasar de open a closed (1 ms)
+    ✓ permite pasar de progress a open (1 ms)
+    ✓ permite pasar de progress a closed (1 ms)
+    ✓ permite pasar de closed a closed (1 ms)
+    ✓ rechaza reabrir un incidente resuelto (closed -> open) (1 ms)
+    ✓ assertStatusChange lanza 409 al reabrir un resuelto (8 ms)
+    ✓ assertStatusChange ignora estados inexistentes (los rechaza el modelo con 400) (1 ms)
+  Identificador INC-###
+    ✓ acepta INC-005 y 5 (1 ms)
+    ✓ rechaza "abc" con 400 (2 ms)
+    ✓ rechaza "INC-" con 400 (1 ms)
+    ✓ rechaza "-1" con 400 (1 ms)
+    ✓ rechaza "1 OR 1=1" con 400 (1 ms)
+  Filtros de búsqueda
+    ✓ aplica valores por defecto de paginación (1 ms)
+    ✓ conserva filtros válidos (1 ms)
+    ✓ rechaza un estado fuera de la lista (1 ms)
+    ✓ rechaza limit=0 (2 ms)
+    ✓ rechaza limit=101 (1 ms)
+    ✓ rechaza limit=abc (1 ms)
+    ✓ rechaza búsquedas de más de 100 caracteres (15 ms)
+  Cuerpo de la petición
+    ✓ traduce email del formulario a reporter (1 ms)
+    ✓ rechaza un cuerpo que no es objeto: null (2 ms)
+    ✓ rechaza un cuerpo que no es objeto: [] (1 ms)
+    ✓ rechaza un cuerpo que no es objeto: "texto" (2 ms)
+    ✓ detecta los campos obligatorios que faltan para PUT (1 ms)
+  Casos de uso con el modelo simulado
+    ✓ PATCH sin campos responde 400 y no consulta la base (2 ms)
+    ✓ PATCH de un incidente inexistente responde 404 (1 ms)
+    ✓ PATCH para reabrir un resuelto responde 409 y no guarda (1 ms)
+    ✓ PATCH válido guarda el cambio (7 ms)
+    ✓ PUT incompleto responde 400 (1 ms)
+    ✓ DELETE de un incidente inexistente responde 404 (1 ms)
+
+PASS tests/errorHandler.test.js
+  ✓ un HttpError conserva su código y mensaje (2 ms)
+  ✓ una validación de Sequelize responde 400 con el detalle por campo (1 ms)
+  ✓ JSON mal formado responde 400
+  ✓ base de datos caída responde 503
+  ✓ un error inesperado responde 500 sin revelar el mensaje interno (1 ms)
+  ✓ una ruta inexistente genera 404
+
+---------------------|---------|----------|---------|---------|--------------------
+File                 | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s  
+---------------------|---------|----------|---------|---------|--------------------
+All files            |   83.83 |    72.17 |      80 |      83 |                    
+ constants           |     100 |      100 |     100 |     100 |                    
+  incident.js        |     100 |      100 |     100 |     100 |                    
+ middleware          |   79.48 |     67.3 |   85.71 |      80 |                    
+  asyncHandler.js    |     100 |      100 |     100 |     100 |                    
+  auth.js            |   86.95 |    78.57 |     100 |    90.9 | 21-22              
+  errorHandler.js    |   79.31 |    51.85 |     100 |   79.31 | 27,31,42,50-52     
+  httpError.js       |     100 |      100 |     100 |     100 |                    
+  logger.js          |       0 |      100 |       0 |       0 | 2-15               
+  sanitize.js        |     100 |     90.9 |     100 |     100 | 19                 
+ services            |   86.58 |    76.19 |   76.19 |    84.5 |                    
+  authService.js     |   66.66 |        0 |      50 |   66.66 | 12-14,37           
+  incidentService.js |      90 |    84.21 |   82.35 |   88.13 | 79,113-121,131-133 
+---------------------|---------|----------|---------|---------|--------------------
+
+=============================== Coverage summary ===============================
+Statements   : 83.83% ( 140/167 )
+Branches     : 72.17% ( 83/115 )
+Functions    : 80% ( 28/35 )
+Lines        : 83% ( 127/153 )
+================================================================================
+Test Suites: 3 passed, 3 total
+Tests:       48 passed, 48 total
+Snapshots:   0 total
+Time:        1.239 s
+Ran all test suites.

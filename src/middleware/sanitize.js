@@ -10,6 +10,7 @@ function cleanString(value) {
   return value
     .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, "") // bloques <script>/<style> con su contenido
     .replace(/<[^>]*>/g, "")                         // resto de etiquetas HTML
+    // eslint-disable-next-line no-control-regex -- intencional: el objetivo es justamente eliminar caracteres de control
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "") // control (conserva \t \n \r)
     .trim();
 }

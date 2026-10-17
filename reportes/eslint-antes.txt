@@ -1,0 +1,23 @@
+
+app.js
+  69:14  error  'error' is defined but never used  no-unused-vars
+
+js/controller.js
+  1:7  error  'IncidentController' is already defined as a built-in global variable  no-redeclare
+
+js/model.js
+    1:7   error  'IncidentModel' is already defined as a built-in global variable  no-redeclare
+    1:7   error  'IncidentModel' is assigned a value but never used                no-unused-vars
+   15:14  error  'error' is defined but never used                                 no-unused-vars
+   25:14  error  'error' is defined but never used                                 no-unused-vars
+  113:14  error  'error' is defined but never used                                 no-unused-vars
+
+js/view.js
+  1:7  error  'IncidentView' is already defined as a built-in global variable  no-redeclare
+  1:7  error  'IncidentView' is assigned a value but never used                no-unused-vars
+
+src/middleware/sanitize.js
+  13:14  error  Unexpected control character(s) in regular expression: \x00, \x08, \x0b, \x0c, \x0e, \x1f  no-control-regex
+
+✖ 10 problems (10 errors, 0 warnings)
+

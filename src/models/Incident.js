@@ -3,9 +3,7 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../db/sequelize");
 
-const ALLOWED_STATUS = ["open", "progress", "closed"];
-const ALLOWED_PRIORITY = ["alta", "media", "baja"];
-const ALLOWED_CATEGORY = ["acceso", "sistema", "red", "otro"];
+const { ALLOWED_STATUS, ALLOWED_PRIORITY, ALLOWED_CATEGORY } = require("../constants/incident");
 
 // Convierte el id numérico de la base (25) en el código visible (INC-025)
 function toCode(id) {

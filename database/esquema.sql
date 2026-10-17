@@ -1,7 +1,8 @@
--- Esquema de las tablas incidents y users (generado con pg_dump después de aplicar las migraciones)
--- Base: PostgreSQL 16 | Proyecto DBP - Unidades 5 y 6
+-- Esquema de las tablas incidents y users (generado con pg_dump después de aplicar las migraciones 1 a 4)
+-- Base: PostgreSQL 16 | Proyecto DBP - Unidades 5, 6 y 7
+-- Requiere la extensión pg_trgm (migración 4)
 
-\restrict NyQzZZ3sJ3rha6k4pcOSc25J8ps2Zljs287LX3AhLd7a9Cxlg3UQet21G7kPj5c
+\restrict oh1PbNpwQiiYLeZ4Xy4ldiaz1nPN2VMb5FSBvJQcF8vb9N7vjlHInZVKMYfhg7g
 
 CREATE TABLE public.incidents (
     id integer NOT NULL,
@@ -67,11 +68,17 @@ ALTER TABLE ONLY public.users
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 
-CREATE INDEX idx_incidents_date ON public.incidents USING btree (date);
+CREATE INDEX idx_incidents_date_id ON public.incidents USING btree (date DESC, id DESC);
+
+CREATE INDEX idx_incidents_description_trgm ON public.incidents USING gin (description public.gin_trgm_ops);
 
 CREATE INDEX idx_incidents_priority ON public.incidents USING btree (priority);
 
-CREATE INDEX idx_incidents_status ON public.incidents USING btree (status);
+CREATE INDEX idx_incidents_reporter_trgm ON public.incidents USING gin (reporter public.gin_trgm_ops);
 
-\unrestrict NyQzZZ3sJ3rha6k4pcOSc25J8ps2Zljs287LX3AhLd7a9Cxlg3UQet21G7kPj5c
+CREATE INDEX idx_incidents_status_date_id ON public.incidents USING btree (status, date DESC, id DESC);
+
+CREATE INDEX idx_incidents_title_trgm ON public.incidents USING gin (title public.gin_trgm_ops);
+
+\unrestrict oh1PbNpwQiiYLeZ4Xy4ldiaz1nPN2VMb5FSBvJQcF8vb9N7vjlHInZVKMYfhg7g
 

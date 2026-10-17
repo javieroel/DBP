@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 const helmet = require("helmet");
 const cors = require("cors");
+const compression = require("compression");
 const security = require("./src/config/security"); // falla al arrancar si JWT_SECRET es débil
 const { connectDatabase, sequelize } = require("./src/db/sequelize");
 const incidentRoutes = require("./src/routes/incidentRoutes");
@@ -55,6 +56,15 @@ app.use(
   })
 );
 
+// Rendimiento: comprime con gzip las respuestas de texto (HTML, CSS, JS y JSON)
+app.use(compression());
+
+// Los datos de la API son privados: el navegador no debe guardarlos en caché
+app.use("/api", (req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
 app.use(express.json({ limit: "10kb" })); // limita el tamaño del cuerpo
 app.use(sanitizeBody);                     // limpia las entradas antes de validarlas
 app.use(requestLogger);
@@ -66,7 +76,7 @@ app.get(
     let baseDatos = "conectada";
     try {
       await sequelize.authenticate();
-    } catch (error) {
+    } catch {
       baseDatos = "sin conexión";
     }
     res.status(baseDatos === "conectada" ? 200 : 503).json({
@@ -86,9 +96,12 @@ app.use("/data", (req, res) => {
   res.status(404).json({ error: "Ruta no disponible de forma directa" });
 });
 
-app.use("/css", express.static(path.join(ROOT, "css")));
-app.use("/js", express.static(path.join(ROOT, "js")));
-app.use("/assets", express.static(path.join(ROOT, "assets")));
+// CSS y JS se revalidan en cada carga con ETag (si no cambiaron: 304 sin cuerpo).
+// Las imágenes cambian poco: se guardan 7 días en la caché del navegador.
+const staticOptions = { maxAge: 0, etag: true };
+app.use("/css", express.static(path.join(ROOT, "css"), staticOptions));
+app.use("/js", express.static(path.join(ROOT, "js"), staticOptions));
+app.use("/assets", express.static(path.join(ROOT, "assets"), { ...staticOptions, maxAge: "7d" }));
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(ROOT, "index.html"));

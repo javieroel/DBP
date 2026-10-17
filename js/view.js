@@ -1,3 +1,4 @@
+/* exported IncidentView */
 const IncidentView = (() => {
   const listEl = document.getElementById("incident-list");
   const countEl = document.getElementById("record-count");
@@ -188,7 +189,16 @@ const IncidentView = (() => {
     formNote.hidden = !message;
   }
 
+  // Mientras se envía el formulario el botón se bloquea y muestra el estado
+  function setSubmitting(formEl, isSubmitting) {
+    const button = formEl.querySelector('button[type="submit"]');
+    button.disabled = isSubmitting;
+    button.textContent = isSubmitting ? "Guardando…" : "Guardar incidente";
+    formEl.setAttribute("aria-busy", String(isSubmitting));
+  }
+
   return {
+    setSubmitting,
     renderSession,
     showLoginError,
     renderLoggedOut,

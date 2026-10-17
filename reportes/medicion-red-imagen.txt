@@ -1,0 +1,23 @@
+MEDICIÓN DE RED E IMAGEN (Unidad 7)
+Herramienta: Chromium (Playwright) y curl, servidor local, mismas condiciones antes y después.
+
+1) Carga inicial de la página (sin sesión): bytes transferidos
+                          ANTES        DESPUÉS     Cambio
+   index.html             8 386 B      2 171 B     compresión Brotli
+   css/styles.css         9 270 B      2 696 B     compresión Brotli
+   js/model.js            6 168 B      2 128 B     compresión Brotli
+   js/view.js             7 503 B      2 498 B     compresión Brotli
+   js/controller.js       7 858 B      2 522 B     compresión Brotli
+   logo                 209 933 B      3 754 B     LOGO.png 440x440 -> logo-64.webp 64x64
+   favicon               404 (no existía)  2 734 B
+   TOTAL (con cabeceras)  254 352 B     24 851 B    -90 %
+
+2) Imagen del logo
+   ANTES:   assets/site_images/LOGO.png  440 x 440 px, 209 933 B, se muestra a 32 px de alto
+   DESPUÉS: assets/site_images/logo-64.webp  64 x 64 px (2x para pantallas de alta densidad), 3 754 B (-98 %)
+            con width/height en el <img> para evitar saltos de diseño. Caché: max-age=604800 (7 días)
+
+3) Solicitud GET /api/incidentes (66 incidentes, mismo token)
+   ANTES (sin compresión):  23 748 B
+   DESPUÉS (gzip/br):        1 873 B   (-92 %)
+   Cabecera Cache-Control: no-store (datos privados: el navegador no los guarda en caché)

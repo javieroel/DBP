@@ -1,3 +1,4 @@
+/* exported IncidentModel */
 const IncidentModel = (() => {
   let incidents = [];
 
@@ -12,7 +13,7 @@ const IncidentModel = (() => {
   function readSession() {
     try {
       return JSON.parse(sessionStorage.getItem(SESSION_KEY)) || null;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -22,7 +23,7 @@ const IncidentModel = (() => {
     try {
       if (value) sessionStorage.setItem(SESSION_KEY, JSON.stringify(value));
       else sessionStorage.removeItem(SESSION_KEY);
-    } catch (error) {
+    } catch {
       /* sin almacenamiento: la sesión vive solo en memoria */
     }
   }
@@ -110,7 +111,7 @@ const IncidentModel = (() => {
         return `${payload.error} ${payload.detalles.map((d) => d.mensaje).join(" ")}`;
       }
       return payload.error || fallback;
-    } catch (error) {
+    } catch {
       return fallback;
     }
   }

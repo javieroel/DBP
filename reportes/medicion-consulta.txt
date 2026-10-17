@@ -1,0 +1,20 @@
+
+Filas de prueba insertadas (temporales): 20000
+
+--- ANTES (índices de la migración 2) ---
+Listado (ORDER BY date DESC, id DESC LIMIT 100)
+   plan: Incremental Sort > Index Scan | índice: idx_incidents_date | mediana de 7: 0.08 ms
+Filtro por estado (status = 'open')
+   plan: Incremental Sort > Index Scan | índice: idx_incidents_date | mediana de 7: 0.14 ms
+Búsqueda de texto (?q=phishing)
+   plan: Sort > Seq Scan | índice: - | mediana de 7: 39.80 ms
+
+--- DESPUÉS (índices de la migración 4) ---
+Listado (ORDER BY date DESC, id DESC LIMIT 100)
+   plan: Index Scan | índice: idx_incidents_date_id | mediana de 7: 0.04 ms
+Filtro por estado (status = 'open')
+   plan: Index Scan | índice: idx_incidents_status_date_id | mediana de 7: 0.04 ms
+Búsqueda de texto (?q=phishing)
+   plan: Sort > Bitmap Heap Scan > BitmapOr > Bitmap Index Scan | índice: idx_incidents_title_trgm, idx_incidents_description_trgm, idx_incidents_reporter_trgm | mediana de 7: 0.03 ms
+
+Transacción revertida: la base quedó como estaba.
