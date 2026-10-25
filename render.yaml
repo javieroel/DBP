@@ -1,0 +1,46 @@
+# BLUEPRINT DE RENDER (Unidad 8): describe la infraestructura de producción como código.
+# En Render: New > Blueprint > repositorio DBP. Crea la base y el servicio web con esta configuración.
+# Entornos del proyecto:  PC = desarrollo  |  servidor Ubuntu (docker compose) = pruebas  |  Render = producción
+
+databases:
+  - name: dbp-incidentes-db
+    plan: free
+    region: virginia             # la región disponible más cercana a Ecuador
+    postgresMajorVersion: "16"   # misma versión que el servidor de pruebas (postgres:16-alpine)
+    databaseName: incidentes_db
+    user: incidentes_app
+    ipAllowList: []              # sin acceso desde internet: solo la red privada de Render llega a la base
+
+services:
+  - type: web
+    name: dbp-incidentes
+    runtime: docker              # reutiliza el mismo Dockerfile del servidor de pruebas
+    plan: free
+    region: virginia             # misma región que la base para usar la red privada
+    healthCheckPath: /api/salud  # Render solo envía tráfico si responde 200 (base conectada)
+    autoDeployTrigger: "off"     # la versión evaluada no cambia sola; cada despliegue es manual y trazable
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL        # URL interna (red privada), la genera Render; nunca se escribe en el código
+        fromDatabase:
+          name: dbp-incidentes-db
+          property: connectionString
+      - key: JWT_SECRET          # Render genera un valor aleatorio de 256 bits, distinto al de los demás entornos
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1h
+      - key: HTTPS_PROXY_ENABLED # Render termina el HTTPS: se activan HSTS y la IP real del cliente
+        value: "true"
+      - key: CORS_ORIGINS        # la propia interfaz ya está permitida; no se autoriza ningún origen externo
+        value: ""
+      - key: LOG_LEVEL
+        value: info
+      - key: SEED_ON_START       # crea los usuarios y los datos de ejemplo al arrancar (idempotente)
+        value: "true"
+      - key: SEED_ADMIN_PASSWORD # se escriben en el panel al crear el Blueprint; no viven en el repositorio
+        sync: false
+      - key: SEED_ANALISTA_PASSWORD
+        sync: false
+      - key: SEED_LECTOR_PASSWORD
+        sync: false

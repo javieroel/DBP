@@ -1,4 +1,4 @@
-# Imagen de la API para ejecutar en el servidor Ubuntu
+# Imagen de la API: la usan el servidor Ubuntu (docker compose) y Render (producción)
 FROM node:22-alpine
 WORKDIR /app
 
@@ -12,5 +12,6 @@ COPY . .
 USER node
 EXPOSE 3000
 
-# Aplica migraciones pendientes y luego enciende el servidor
-CMD ["sh", "-c", "npx sequelize-cli db:migrate && node app.js"]
+# Al arrancar: 1) aplica migraciones pendientes, 2) si SEED_ON_START=true carga los datos iniciales
+# (los seeders son idempotentes), 3) enciende el servidor. Si un paso falla, el servidor no arranca.
+CMD ["sh", "-c", "npx sequelize-cli db:migrate && if [ \"$SEED_ON_START\" = \"true\" ]; then npx sequelize-cli db:seed:all; fi && node app.js"]

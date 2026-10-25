@@ -1,15 +1,23 @@
 // PRUEBAS DE LA API (Unidad 6): funcionamiento, autenticación, autorización, validación y CORS.
 // Uso: con el servidor encendido -> npm run probar
 //      contra otro servidor       -> API_URL=http://IP:3000 npm run probar
-// Credenciales: ADMIN_PASSWORD, ANALISTA_PASSWORD y LECTOR_PASSWORD (por defecto, las de ejemplo del .env).
+//      contra producción          -> API_URL=https://<servicio>.onrender.com npm run probar
+// Credenciales: ADMIN_PASSWORD, ANALISTA_PASSWORD y LECTOR_PASSWORD, o en su defecto las SEED_*_PASSWORD
+// del .env. No hay contraseñas escritas en el código: el repositorio es público.
+require("dotenv").config({ quiet: true });
 const crypto = require("crypto");
 
 const BASE = process.env.API_URL || "http://localhost:3000";
 const PASSWORDS = {
-  admin: process.env.ADMIN_PASSWORD || "Admin_Prueba_2026",
-  analista: process.env.ANALISTA_PASSWORD || "Analista_Prueba_2026",
-  lector: process.env.LECTOR_PASSWORD || "Lector_Prueba_2026"
+  admin: process.env.ADMIN_PASSWORD || process.env.SEED_ADMIN_PASSWORD,
+  analista: process.env.ANALISTA_PASSWORD || process.env.SEED_ANALISTA_PASSWORD,
+  lector: process.env.LECTOR_PASSWORD || process.env.SEED_LECTOR_PASSWORD
 };
+const missingPasswords = Object.entries(PASSWORDS).filter(([, value]) => !value).map(([role]) => role);
+if (missingPasswords.length) {
+  console.error(`Faltan las contraseñas de: ${missingPasswords.join(", ")}. Defina ADMIN_PASSWORD, ANALISTA_PASSWORD y LECTOR_PASSWORD.`);
+  process.exit(1);
+}
 
 const valid = {
   title: "Intento de acceso por fuerza bruta",

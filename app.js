@@ -12,15 +12,24 @@ const { requestLogger } = require("./src/middleware/logger");
 const { notFound, errorHandler } = require("./src/middleware/errorHandler");
 const asyncHandler = require("./src/middleware/asyncHandler");
 const HttpError = require("./src/middleware/httpError");
+const log = require("./src/utils/log");
+const { version } = require("./package.json");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
+const ENVIRONMENT = process.env.NODE_ENV || "development";
+// Versión desplegada: la del package.json y, si el proveedor la entrega, el commit de Git
+const COMMIT = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "").slice(0, 7);
 
 app.disable("x-powered-by"); // no anunciar que usamos Express
 
-// Detrás de Caddy (HTTPS) se confía en el proxy para conocer la IP real del cliente
+// Detrás de un proxy HTTPS (Caddy o Render) se confía en él para conocer la IP real y el protocolo
 if (security.behindHttpsProxy) app.set("trust proxy", 1);
+
+// Primero el registro: así TODA petición (incluso las rechazadas por CORS o por JSON inválido)
+// recibe un id de seguimiento y queda en el log.
+app.use(requestLogger);
 
 // Cabeceras de seguridad: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy...
 app.use(
@@ -43,7 +52,7 @@ app.use("/api", (req, res, next) => {
   if (!origin) return next(); // curl, Postman, scripts: no son navegadores, CORS no aplica
   const ownOrigin = `${req.protocol}://${req.get("host")}`;
   if (origin === ownOrigin || security.corsOrigins.includes(origin)) return next();
-  console.warn(`[cors] Origen bloqueado: ${origin}`);
+  log.warn("cors_bloqueado", { event: "seguridad.cors_bloqueado", reqId: req.id, origin, ip: req.ip });
   return next(new HttpError(403, "Origen no permitido por la política CORS."));
 });
 app.use(
@@ -67,9 +76,10 @@ app.use("/api", (req, res, next) => {
 
 app.use(express.json({ limit: "10kb" })); // limita el tamaño del cuerpo
 app.use(sanitizeBody);                     // limpia las entradas antes de validarlas
-app.use(requestLogger);
 
-// Salud del servicio: ahora también comprueba la conexión con la base
+// HEALTH CHECK (Unidad 8): el proveedor lo consulta para saber si la instancia puede recibir tráfico.
+// Comprueba la dependencia esencial (la base). Responde 503 si no hay conexión.
+// No revela tecnologías internas (se retiró "motor"), solo lo necesario para operar.
 app.get(
   "/api/salud",
   asyncHandler(async (req, res) => {
@@ -82,9 +92,11 @@ app.get(
     res.status(baseDatos === "conectada" ? 200 : 503).json({
       estado: baseDatos === "conectada" ? "ok" : "degradado",
       servicio: "Plataforma de gestión de incidentes",
-      motor: "Express",
+      version,
+      commit: COMMIT || undefined,
+      entorno: ENVIRONMENT,
       baseDatos,
-      persistencia: "PostgreSQL + Sequelize"
+      tiempoActivoSeg: Math.round(process.uptime())
     });
   })
 );
@@ -115,12 +127,30 @@ async function start() {
   try {
     await connectDatabase();
   } catch (error) {
-    console.error("[db] No se pudo conectar a PostgreSQL:", error.message);
+    log.error("base_no_disponible", { error: error.name, detalle: error.message || "sin mensaje (¿la base está encendida?)" });
     process.exit(1);
   }
-  app.listen(PORT, () => {
-    console.log(`Servidor Express disponible en http://localhost:${PORT}`);
+  const server = app.listen(PORT, () => {
+    log.info("servidor_iniciado", { port: Number(PORT), entorno: ENVIRONMENT, version, commit: COMMIT || undefined });
   });
+
+  // Apagado ordenado: el proveedor envía SIGTERM al publicar una versión nueva.
+  // Se dejan de aceptar conexiones, se terminan las que están en curso y se cierra la base.
+  const shutdown = (signal) => {
+    log.info("servidor_deteniendo", { signal });
+    server.close(async () => {
+      await sequelize.close().catch(() => {});
+      log.info("servidor_detenido", { signal });
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 10000).unref(); // por si una conexión no termina
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
+
+process.on("unhandledRejection", (reason) => {
+  log.error("promesa_no_controlada", { detalle: reason instanceof Error ? reason.message : String(reason) });
+});
 
 start();

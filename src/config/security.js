@@ -15,6 +15,17 @@ const corsOrigins = (process.env.CORS_ORIGINS || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const behindHttpsProxy = process.env.HTTPS_PROXY_ENABLED === "true";
+if (process.env.NODE_ENV === "production" && !behindHttpsProxy) {
+  // No se detiene (el servidor de la red local puede usarse por HTTP), pero queda advertido en el log
+  console.warn(JSON.stringify({
+    time: new Date().toISOString(),
+    level: "warn",
+    msg: "produccion_sin_https",
+    detalle: "NODE_ENV=production sin HTTPS_PROXY_ENABLED=true: no se envía HSTS."
+  }));
+}
+
 module.exports = {
   jwt: {
     secret,
@@ -25,6 +36,6 @@ module.exports = {
   },
   corsOrigins,
   // true cuando la app está detrás de un proxy HTTPS (Caddy): habilita HSTS y la IP real del cliente
-  behindHttpsProxy: process.env.HTTPS_PROXY_ENABLED === "true",
+  behindHttpsProxy,
   bcryptRounds: 12
 };

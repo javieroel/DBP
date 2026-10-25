@@ -2,6 +2,7 @@
 const HttpError = require("../middleware/httpError");
 const asyncHandler = require("../middleware/asyncHandler");
 const authService = require("../services/authService");
+const log = require("../utils/log");
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -19,11 +20,11 @@ const login = asyncHandler(async (req, res) => {
   const user = await authService.verifyCredentials(email, password);
   if (!user) {
     // Mismo mensaje para correo inexistente o contraseña incorrecta: no revela qué falló
-    console.warn(`[auth] Inicio de sesión fallido para ${email} desde ${req.ip}`);
+    log.warn("login_fallido", { event: "seguridad.login_fallido", reqId: req.id, email: log.maskEmail(email), ip: req.ip });
     throw new HttpError(401, "Credenciales inválidas.");
   }
 
-  console.log(`[auth] Inicio de sesión de ${user.email} (${user.role})`);
+  log.info("login_correcto", { event: "seguridad.login_correcto", reqId: req.id, userId: user.id, role: user.role, ip: req.ip });
   res.json({ token: authService.issueToken(user), user: user.toJSON() });
 });
 

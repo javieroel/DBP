@@ -9,6 +9,7 @@ const {
   DatabaseError
 } = require("sequelize");
 const HttpError = require("./httpError");
+const log = require("../utils/log");
 
 function notFound(req, res, next) {
   next(new HttpError(404, `Ruta no encontrada: ${req.method} ${req.originalUrl}`));
@@ -60,14 +61,16 @@ function classify(err) {
 function errorHandler(err, req, res, next) {
   const { status, ...body } = classify(err);
 
-  // El detalle técnico solo se queda en el log del servidor
+  // El detalle técnico solo se queda en el log del servidor; el cliente recibe un mensaje genérico
+  // y el id de solicitud, que permite encontrar este mismo evento en los logs.
+  const path = String(req.originalUrl || "").split("?")[0];
   if (status >= 500) {
-    console.error(`[error] ${req.method} ${req.originalUrl} ->`, err.name, err.message);
+    log.error("error_interno", { reqId: req.id, method: req.method, path, error: err.name, detalle: err.message });
   } else {
-    console.warn(`[aviso] ${req.method} ${req.originalUrl} -> ${status} ${body.error}`);
+    log.warn("error_cliente", { reqId: req.id, method: req.method, path, status, error: body.error });
   }
 
-  res.status(status).json({ ...body, ruta: req.originalUrl });
+  res.status(status).json({ ...body, ruta: path, solicitud: req.id });
 }
 
 module.exports = { notFound, errorHandler };

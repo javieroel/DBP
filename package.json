@@ -1,6 +1,6 @@
 {
   "name": "dbp-incidentes",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Plataforma de gestión de incidentes - Desarrollo Basado en Plataformas",
   "type": "commonjs",
   "scripts": {
@@ -45,7 +45,8 @@
     "collectCoverageFrom": [
       "src/services/**/*.js",
       "src/middleware/**/*.js",
-      "src/constants/**/*.js"
+      "src/constants/**/*.js",
+      "src/utils/**/*.js"
     ],
     "coverageReporters": [
       "text",

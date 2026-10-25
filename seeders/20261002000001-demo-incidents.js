@@ -33,6 +33,9 @@ const incidents = [
 
 module.exports = {
   async up(queryInterface) {
+    // Idempotente: solo carga los ejemplos si la tabla está vacía (no duplica datos en cada arranque)
+    const [[{ total }]] = await queryInterface.sequelize.query("SELECT COUNT(*)::int AS total FROM incidents");
+    if (total > 0) return;
     await queryInterface.bulkInsert("incidents", incidents);
   },
 

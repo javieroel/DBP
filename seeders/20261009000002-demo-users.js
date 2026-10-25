@@ -14,7 +14,12 @@ module.exports = {
   async up(queryInterface) {
     const now = new Date();
     const rows = [];
+    // Idempotente: si un usuario ya existe no se vuelve a crear ni se cambia su contraseña.
+    // Así el seeder puede ejecutarse en cada arranque (Render) sin duplicar registros.
+    const [existing] = await queryInterface.sequelize.query("SELECT email FROM users");
+    const existingEmails = new Set(existing.map((row) => row.email));
     for (const user of users) {
+      if (existingEmails.has(user.email)) continue;
       const password = process.env[user.env];
       if (!password || password.length < 10) {
         throw new Error(`${user.env} falta en el .env o tiene menos de 10 caracteres.`);
@@ -28,7 +33,7 @@ module.exports = {
         updated_at: now
       });
     }
-    await queryInterface.bulkInsert("users", rows);
+    if (rows.length) await queryInterface.bulkInsert("users", rows);
   },
 
   async down(queryInterface) {
