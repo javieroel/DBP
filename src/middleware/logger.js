@@ -15,7 +15,10 @@ function requestLogger(req, res, next) {
   res.on("finish", () => {
     const ms = Number(process.hrtime.bigint() - startedAt) / 1e6;
     const status = res.statusCode;
-    const level = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
+    // El health check correcto lo consulta el proveedor cada pocos segundos: va a "debug" para no
+    // tapar los eventos importantes (15.4: guardar información útil, no todo sin límite).
+    const routineHealthCheck = req.originalUrl === "/api/salud" && status === 200;
+    const level = status >= 500 ? "error" : status >= 400 ? "warn" : routineHealthCheck ? "debug" : "info";
     const fields = {
       reqId: req.id,
       method: req.method,

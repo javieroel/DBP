@@ -908,7 +908,7 @@ Durante la preparación de esta entrega se detectó que una copia del `.env` de 
 | Datos iniciales | Fallaban si se ejecutaban dos veces | Seeders idempotentes | `seeders/` |
 | Contraseñas en el código | `pruebas.js` tenía contraseñas por defecto | Se leen solo de variables de entorno | `scripts/pruebas.js` |
 | IP del cliente detrás de proxies | `trust proxy` fijo en 1 (pensado para Caddy) | `TRUST_PROXY` configurable y validado; el log registra cuántos saltos trae `X-Forwarded-For` | `src/config/security.js`, `app.js` |
-| Pruebas unitarias | 48 (83,8 %) | **60 (89,3 %)**, nueva suite `tests/operacion.test.js` | `tests/` |
+| Pruebas unitarias | 48 (83,8 %) | **61 (90,3 %)**, nueva suite `tests/operacion.test.js` | `tests/` |
 | Limpieza | Archivos `tmp-*.json` en la raíz | Eliminados | — |
 
 Ejemplo de un evento de seguridad en los logs (el correo se enmascara y no hay contraseñas ni tokens):
@@ -931,6 +931,16 @@ Al revisar la Figura P7 se detectó que dos intentos hechos **desde el mismo equ
 - el límite de 10 intentos de login "por IP" se aplicaba por proxy interno y no por atacante, lo que **debilitaba la protección contra fuerza bruta**.
 
 La corrección **no adivina** el número de proxies, porque Render no lo documenta oficialmente. `TRUST_PROXY` es ahora configurable y validado: la app no arranca con `true`, que permitiría falsificar la IP enviando un encabezado propio. Además, cada log registra `xff`, que es la **cantidad** de saltos en `X-Forwarded-For` (nunca las IPs), para medir el valor correcto en producción.
+
+**Medición y corrección.** Tras desplegar ese cambio, los logs de producción mostraron `"xff":3` en todas las visitas reales: hay **tres proxies** entre el navegador y la aplicación (Cloudflare y los balanceadores de Render). Se fijó `TRUST_PROXY=3` en `render.yaml`. Con ese valor, Express toma como IP del cliente la entrada que agregó el primer proxy de confianza. Si un atacante envía su propio `X-Forwarded-For` con una IP falsa, esa entrada queda **antes** de la que se usa y es ignorada.
+
+Los mismos logs revelaron un segundo problema: Render consulta `/api/salud` **cada 5 segundos**, y esas líneas tapaban los eventos importantes. Los health checks correctos pasaron al nivel `debug`; uno fallido (`503`) se sigue registrando como `error`.
+
+| | Antes | Después |
+|---|---|---|
+| IP registrada de un mismo usuario | Cambiaba entre proxies internos (`10.29.166.92`, `10.27.74.163`, `10.28.123.5`) | La IP pública real del cliente |
+| Límite de 10 intentos de login | Por proxy interno: débil ante fuerza bruta | Por cliente real |
+| Logs | Una línea de health check cada 5 s | Solo eventos útiles |
 
 El health check en producción identifica la versión exacta que está corriendo (versión y commit), el entorno y el estado de la base, sin revelar tecnologías internas:
 
@@ -969,8 +979,8 @@ npm run probar
 Pruebas unitarias y análisis estático después de los cambios de esta entrega:
 
 <p align="center">
-    <img src="assets/repo_images/jest_lint_v2.png" alt="Terminal con npm test: 4 suites y 60 pruebas aprobadas; npm run lint sin problemas" style="width: 450px;">
-    <br><em>Figura P8. Jest con 60 pruebas aprobadas en 4 suites y ESLint sin problemas.</em>
+    <img src="assets/repo_images/jest_lint_v2.png" alt="Terminal con npm test: 4 suites y 61 pruebas aprobadas; npm run lint sin problemas" style="width: 450px;">
+    <br><em>Figura P8. Jest con 61 pruebas aprobadas en 4 suites y ESLint sin problemas.</em>
 </p>
 
 <p align="center">
@@ -1005,6 +1015,6 @@ Si la versión nueva falla: Render → **Events** → **Rollback** al despliegue
 
 ## ENTREGA T1S8
 
-En esta octava entrega la plataforma pasó de funcionar en una red local a ser un servicio público, operable y verificable. Se desplegó en Render con HTTPS válido y una base sin acceso desde internet, manteniendo el servidor propio aislado como entorno de pruebas. La configuración se lee por entorno y la aplicación se niega a arrancar si falta un valor. Los logs ahora son estructurados, marcan los eventos de seguridad y nunca registran secretos. El health check informa versión y estado de la base. Las pruebas finales se ejecutaron contra producción con 39/39 casos, más 60 pruebas unitarias y ESLint sin problemas. Se entregan además la documentación técnica y el manual de usuario.
+En esta octava entrega la plataforma pasó de funcionar en una red local a ser un servicio público, operable y verificable. Se desplegó en Render con HTTPS válido y una base sin acceso desde internet, manteniendo el servidor propio aislado como entorno de pruebas. La configuración se lee por entorno y la aplicación se niega a arrancar si falta un valor. Los logs ahora son estructurados, marcan los eventos de seguridad y nunca registran secretos. El health check informa versión y estado de la base. Las pruebas finales se ejecutaron contra producción con 39/39 casos, más 61 pruebas unitarias y ESLint sin problemas. Se entregan además la documentación técnica y el manual de usuario.
 
 ___

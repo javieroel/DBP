@@ -1,4 +1,4 @@
-# **GUION DE LA DEFENSA (≈10 minutos)**
+# **GUION DE LA DEFENSA (≈11 minutos)**
 
 Versión 2.0.0 · https://dbp-incidentes.onrender.com · Enfoque: ciberseguridad · Puntos 16.1 a 16.5
 
@@ -23,10 +23,11 @@ Versión 2.0.0 · https://dbp-incidentes.onrender.com · Enfoque: ciberseguridad
 | 6:00–7:00 | 6. Seguridad | Defensa en profundidad por categoría OWASP |
 | 7:00–7:45 | 7. Secretos | El incidente del `.env`: detección, alcance, respuesta, verificación |
 | 7:45–8:30 | 8. Logs | Línea JSON, id de solicitud, eventos de seguridad, lo que nunca se registra, health check |
-| 8:30–9:15 | 9. Pruebas | 39/39 en producción, 60 unitarias, ESLint 0; la anécdota del 32/39 |
-| 9:15–9:45 | 10. Limitaciones | Plan gratuito, MFA, revocación, Redis, SIEM, auditoría |
-| 9:45–10:15 | 11. Lecciones | Cuatro lecciones con ejemplos propios; siguiente paso: CI |
-| 10:15–10:30 | 12. Cierre | Plan de retiro después de la nota; preguntas |
+| 8:30–9:15 | 9. **Hallazgo** | La IP del cliente detrás de 3 proxies: síntoma en los logs, medición `xff:3`, `TRUST_PROXY=3`, por qué nunca `true` |
+| 9:15–10:00 | 10. Pruebas | 39/39 en producción, 61 unitarias, ESLint 0; la anécdota del 32/39 |
+| 10:00–10:30 | 11. Limitaciones | Plan gratuito, MFA, revocación, Redis, SIEM, auditoría |
+| 10:30–11:00 | 12. Lecciones | Cuatro lecciones con ejemplos propios; siguiente paso: CI |
+| 11:00–11:15 | 13. Cierre | Plan de retiro después de la nota; preguntas |
 
 ## Demo: pasos exactos (diapositiva 5)
 
@@ -50,6 +51,7 @@ Versión 2.0.0 · https://dbp-incidentes.onrender.com · Enfoque: ciberseguridad
 - *¿Por qué `sessionStorage` y no cookies?* Se borra al cerrar la pestaña y no se envía solo en cada petición, así que no hay CSRF. El riesgo es XSS, mitigado con CSP, limpieza de entradas y escape en la vista.
 - *¿Cómo protege las contraseñas?* bcrypt de 12 rondas con sal, un `CHECK` en la base que impide texto plano, el mismo mensaje y el mismo tiempo si el correo no existe, y un límite de 10 intentos.
 - *¿La base está expuesta?* No: `ipAllowList: []` en Render; solo la alcanza el servicio por la red privada.
+- *¿Por qué `TRUST_PROXY=3` y no `true`?* Con `true`, Express toma la primera IP de `X-Forwarded-For`, que el cliente puede escribir a su gusto: el atacante elegiría su IP y evadiría el límite de intentos. Con 3, se usa la IP que agregó el primer proxy de confianza.
 
 **Pruebas**
 - *¿Cómo sabe que funciona en producción y no solo en local?* El mismo script de 39 casos se ejecutó contra la URL pública (`reportes/pruebas-produccion.txt`).

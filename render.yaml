@@ -32,8 +32,8 @@ services:
         value: 1h
       - key: HTTPS_PROXY_ENABLED # Render termina el HTTPS: se activan HSTS y la IP real del cliente
         value: "true"
-      - key: TRUST_PROXY         # proxies delante de la app (Cloudflare + balanceadores de Render); medido con el campo "xff" de los logs
-        value: "1"
+      - key: TRUST_PROXY         # 3 proxies delante de la app (Cloudflare + balanceadores de Render), medido con "xff":3 en los logs
+        value: "3"
       - key: CORS_ORIGINS        # la propia interfaz ya está permitida; no se autoriza ningún origen externo
         value: ""
       - key: LOG_LEVEL

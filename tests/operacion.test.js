@@ -109,12 +109,26 @@ describe("Logs estructurados y seguros", () => {
   test("se registra cuántos proxies hay en X-Forwarded-For, pero nunca sus IPs", () => {
     const handlers = {};
     const headers = { "X-Forwarded-For": "203.0.113.7, 10.0.0.1, 10.0.0.2" };
-    const req = { get: (h) => headers[h], method: "GET", originalUrl: "/api/salud", ip: "203.0.113.7" };
+    const req = { get: (h) => headers[h], method: "GET", originalUrl: "/", ip: "203.0.113.7" };
     const res = { statusCode: 200, set: jest.fn(), on: (event, fn) => (handlers[event] = fn) };
     requestLogger(req, res, () => {});
     handlers.finish();
     expect(output[0].xff).toBe(3);
     expect(JSON.stringify(output[0])).not.toContain("10.0.0.1");
+  });
+
+  test("el health check correcto no llena los logs (nivel debug), pero uno fallido sí se registra", () => {
+    const run = (status) => {
+      const handlers = {};
+      const req = { get: () => undefined, method: "GET", originalUrl: "/api/salud", ip: "x" };
+      const res = { statusCode: status, set: jest.fn(), on: (event, fn) => (handlers[event] = fn) };
+      requestLogger(req, res, () => {});
+      handlers.finish();
+    };
+    run(200);
+    expect(output).toHaveLength(0); // LOG_LEVEL=info por defecto: debug no se escribe
+    run(503);
+    expect(output[0]).toMatchObject({ level: "error", status: 503 });
   });
 
   test("un id de solicitud recibido con formato inválido se reemplaza", () => {

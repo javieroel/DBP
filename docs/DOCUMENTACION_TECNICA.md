@@ -109,7 +109,7 @@ DBP/
 │   └── db/sequelize.js       # pool de conexiones
 ├── migrations/               # 4 migraciones versionadas (up/down)
 ├── seeders/                  # usuarios por rol e incidentes de ejemplo (idempotentes)
-├── tests/                    # 60 pruebas unitarias (Jest)
+├── tests/                    # 61 pruebas unitarias (Jest)
 ├── scripts/                  # pruebas.js (39 casos de integración), medir-consulta.js
 ├── reportes/                 # reportes de ESLint, Jest, mediciones y pruebas en producción
 ├── docs/                     # esta documentación y el manual de usuario
@@ -133,7 +133,7 @@ Toda la configuración se lee de variables de entorno. **Si falta un valor oblig
 | `JWT_SECRET` | Sí | Clave de firma de los tokens, mínimo 32 caracteres | Generada por Render (256 bits) |
 | `JWT_EXPIRES_IN` | No | Vigencia del token | `1h` |
 | `HTTPS_PROXY_ENABLED` | No | `true` detrás de un proxy HTTPS: activa HSTS e IP real del cliente | `true` |
-| `TRUST_PROXY` | No | Cantidad exacta de proxies delante de la app (1 a 10; nunca `true`). Se calibra con el campo `xff` de los logs | Medido en producción |
+| `TRUST_PROXY` | No | Cantidad exacta de proxies delante de la app (1 a 10; nunca `true`). Se calibra con el campo `xff` de los logs | `3` (medido en producción) |
 | `CORS_ORIGINS` | No | Orígenes externos autorizados, separados por comas | Vacío (solo la propia interfaz) |
 | `NODE_ENV` | No | `development` / `production` | `production` |
 | `PORT` | No | Puerto de escucha | Lo asigna Render |
@@ -158,7 +158,7 @@ ___
 git clone https://github.com/javieroel/DBP.git && cd DBP
 cp .env.example .env              # completar valores propios
 npm install
-npm test                          # 60 pruebas unitarias (no requieren base)
+npm test                          # 61 pruebas unitarias (no requieren base)
 npm run lint                      # análisis estático
 # Con Docker disponible, levantar la base y la API:
 docker compose up -d db adminer
@@ -319,7 +319,19 @@ Cada evento es una línea JSON. Esto permite filtrarlos en el panel de Render o 
 
 Cada respuesta incluye la cabecera `X-Request-Id`, y los errores incluyen el campo `solicitud`. Si un usuario reporta un error, ese id se busca en los logs para encontrar la petición exacta, su código, duración y usuario.
 
-### 10.3 Monitoreo
+### 10.3 IP del cliente detrás de proxies (hallazgo en producción)
+
+Los logs de producción mostraron que un mismo usuario aparecía con IPs internas distintas, porque `trust proxy` estaba fijo en 1. Se agregó el campo `xff` (cantidad de entradas de `X-Forwarded-For`, nunca las IPs) y se midió **`xff: 3`**: Cloudflare más dos balanceadores de Render. Con `TRUST_PROXY=3`:
+
+- los logs y el límite de intentos de login usan la IP real del cliente;
+- una IP falsa enviada por el cliente en su propio `X-Forwarded-For` queda fuera de los saltos de confianza y se ignora;
+- la aplicación no arranca si `TRUST_PROXY` vale `true` o está fuera de 1 a 10.
+
+Si el proveedor cambia su infraestructura, el campo `xff` de los logs lo hará visible y bastará con ajustar la variable.
+
+Los health checks correctos (`/api/salud` con `200`), que Render consulta cada 5 segundos, se registran en nivel `debug` para no tapar los eventos útiles.
+
+### 10.4 Monitoreo
 
 | Qué | Cómo |
 |---|---|
@@ -347,7 +359,7 @@ ___
 
 | Tipo | Herramienta | Resultado |
 |---|---|---|
-| Unitarias | Jest (`npm test`, Figura P8 del README) | **60/60**, 4 suites, 89,3 % de sentencias en servicios, middlewares y utilidades |
+| Unitarias | Jest (`npm test`, Figura P8 del README) | **61/61**, 4 suites, 90,3 % de sentencias en servicios, middlewares y utilidades |
 | Análisis estático | ESLint (`npm run lint`) | **0 problemas** |
 | Integración en producción | `scripts/pruebas.js` contra `https://dbp-incidentes.onrender.com` | **39/39** con el código HTTP esperado |
 | Simulación de producción | PostgreSQL 16 local + variables de Render (sin `.env`) | Migraciones, seeders idempotentes, HSTS y 39/39 |
@@ -439,4 +451,4 @@ ___
 | 1.0 | 5 | PostgreSQL, Sequelize, migraciones, Docker |
 | 1.2 | 6 | JWT, roles, bcrypt, CORS, Helmet, HTTPS con Caddy |
 | 1.3 | 7 | Jest, ESLint, rendimiento, refactorización MVC |
-| **2.0.0** | **8** | **Producción en Render, configuración por entorno con `DATABASE_URL`, logs estructurados, health check con versión, apagado ordenado, seeders idempotentes, `TRUST_PROXY` configurable, 60 pruebas unitarias** |
+| **2.0.0** | **8** | **Producción en Render, configuración por entorno con `DATABASE_URL`, logs estructurados, health check con versión, apagado ordenado, seeders idempotentes, `TRUST_PROXY` configurable, 61 pruebas unitarias** |
