@@ -329,6 +329,8 @@ Los logs de producción mostraron que un mismo usuario aparecía con IPs interna
 
 Si el proveedor cambia su infraestructura, el campo `xff` de los logs lo hará visible y bastará con ajustar la variable.
 
+Verificado en producción: tras agregar `TRUST_PROXY=3` en el panel de Render, el log de un inicio de sesión fallido registró la IP pública del cliente en lugar de una `10.x` (Figuras P9 y P10 del README). Cambiar `render.yaml` **no** actualiza las variables de un servicio ya creado; hay que confirmarlas en el panel.
+
 Los health checks correctos (`/api/salud` con `200`), que Render consulta cada 5 segundos, se registran en nivel `debug` para no tapar los eventos útiles.
 
 ### 10.4 Monitoreo

@@ -942,6 +942,18 @@ Los mismos logs revelaron un segundo problema: Render consulta `/api/salud` **ca
 | Límite de 10 intentos de login | Por proxy interno: débil ante fuerza bruta | Por cliente real |
 | Logs | Una línea de health check cada 5 s | Solo eventos útiles |
 
+**Verificación.** El cambio en `render.yaml` **no creó la variable** en el servicio, que ya existía: Render conserva las variables del primer despliegue. Un nuevo intento siguió mostrando una IP interna, aun con el commit correcto desplegado (`/api/salud` → `f415796`). Se agregó `TRUST_PROXY=3` en el panel de Render y el siguiente intento registró por fin la **IP pública del cliente**. Lección: la configuración de producción vive en el proveedor, y cada cambio se confirma en los logs, no se da por hecho.
+
+<p align="center">
+    <img src="assets/repo_images/hallazgo_ip_antes.png" alt="Logs de Render antes de la corrección: login_fallido con ip 10.28.123.5, una dirección interna, aunque xff vale 3" style="width: 750px;">
+    <br><em>Figura P9. Antes: con <code>"xff":3</code> la app registraba una IP interna de Render (<code>10.28.123.5</code>).</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/hallazgo_ip_despues.png" alt="Logs de Render después de la corrección: login_fallido con la IP pública del cliente, parcialmente difuminada, y xff 3" style="width: 750px;">
+    <br><em>Figura P10. Después, con <code>TRUST_PROXY=3</code>: se registra la IP pública real del cliente (difuminada en la captura).</em>
+</p>
+
 El health check en producción identifica la versión exacta que está corriendo (versión y commit), el entorno y el estado de la base, sin revelar tecnologías internas:
 
 <p align="center">

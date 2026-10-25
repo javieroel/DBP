@@ -13,6 +13,8 @@ Versión 2.0.0 · https://dbp-incidentes.onrender.com · Enfoque: ciberseguridad
 
 ## Guion por diapositiva
 
+El texto completo está en las notas de cada diapositiva, escrito en tono conversacional: úsalo como base y compleméntalo con tus palabras. Las diapositivas usan capturas reales del proyecto (demo, logs, hallazgo y pruebas).
+
 | Tiempo | Diapositiva | Qué decir (resumen; el texto completo está en las notas de cada diapositiva) |
 |---|---|---|
 | 0:00–0:30 | 1. Portada | Presentación, versión 2.0.0, URL y qué se va a cubrir |
@@ -23,11 +25,11 @@ Versión 2.0.0 · https://dbp-incidentes.onrender.com · Enfoque: ciberseguridad
 | 6:00–7:00 | 6. Seguridad | Defensa en profundidad por categoría OWASP |
 | 7:00–7:45 | 7. Secretos | El incidente del `.env`: detección, alcance, respuesta, verificación |
 | 7:45–8:30 | 8. Logs | Línea JSON, id de solicitud, eventos de seguridad, lo que nunca se registra, health check |
-| 8:30–9:15 | 9. **Hallazgo** | La IP del cliente detrás de 3 proxies: síntoma en los logs, medición `xff:3`, `TRUST_PROXY=3`, por qué nunca `true` |
-| 9:15–10:00 | 10. Pruebas | 39/39 en producción, 61 unitarias, ESLint 0; la anécdota del 32/39 |
-| 10:00–10:30 | 11. Limitaciones | Plan gratuito, MFA, revocación, Redis, SIEM, auditoría |
-| 10:30–11:00 | 12. Lecciones | Cuatro lecciones con ejemplos propios; siguiente paso: CI |
-| 11:00–11:15 | 13. Cierre | Plan de retiro después de la nota; preguntas |
+| 8:30–9:30 | 9. **Hallazgo** | La IP del cliente detrás de 3 proxies: síntoma en los logs, medición `xff:3`, `TRUST_PROXY=3`, por qué nunca `true` |
+| 9:30–10:15 | 10. Pruebas | 39/39 en producción, 61 unitarias, ESLint 0; la anécdota del 32/39 |
+| 10:15–10:45 | 11. Limitaciones | Plan gratuito, MFA, revocación, Redis, SIEM, auditoría |
+| 10:45–11:15 | 12. Lecciones | Cuatro lecciones con ejemplos propios; siguiente paso: CI |
+| 11:15–11:30 | 13. Cierre | Plan de retiro después de la nota; preguntas |
 
 ## Demo: pasos exactos (diapositiva 5)
 
