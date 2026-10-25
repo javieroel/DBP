@@ -16,6 +16,15 @@ const corsOrigins = (process.env.CORS_ORIGINS || "")
   .filter(Boolean);
 
 const behindHttpsProxy = process.env.HTTPS_PROXY_ENABLED === "true";
+
+// Cuántos proxies hay entre internet y la app (Caddy = 1; en Render hay varios: Cloudflare + balanceadores).
+// Con el número exacto, Express toma como IP del cliente la entrada correcta de X-Forwarded-For.
+// Un valor menor deja la IP de un proxy interno (el límite de intentos dejaría de ser por cliente);
+// "true" o un valor mayor permitiría que el cliente falsifique su IP enviando su propio encabezado.
+const trustProxyHops = Number(process.env.TRUST_PROXY || 1);
+if (!Number.isInteger(trustProxyHops) || trustProxyHops < 1 || trustProxyHops > 10) {
+  throw new Error("TRUST_PROXY debe ser un número entero entre 1 y 10 (cantidad de proxies delante de la app).");
+}
 if (process.env.NODE_ENV === "production" && !behindHttpsProxy) {
   // No se detiene (el servidor de la red local puede usarse por HTTP), pero queda advertido en el log
   console.warn(JSON.stringify({
@@ -37,5 +46,6 @@ module.exports = {
   corsOrigins,
   // true cuando la app está detrás de un proxy HTTPS (Caddy): habilita HSTS y la IP real del cliente
   behindHttpsProxy,
+  trustProxyHops,
   bcryptRounds: 12
 };

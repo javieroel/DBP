@@ -24,8 +24,9 @@ const COMMIT = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "").s
 
 app.disable("x-powered-by"); // no anunciar que usamos Express
 
-// Detrás de un proxy HTTPS (Caddy o Render) se confía en él para conocer la IP real y el protocolo
-if (security.behindHttpsProxy) app.set("trust proxy", 1);
+// Detrás de un proxy HTTPS (Caddy o Render) se confía en un número EXACTO de saltos (TRUST_PROXY)
+// para conocer la IP real del cliente y el protocolo. Nunca "true": permitiría falsificar la IP.
+if (security.behindHttpsProxy) app.set("trust proxy", security.trustProxyHops);
 
 // Primero el registro: así TODA petición (incluso las rechazadas por CORS o por JSON inválido)
 // recibe un id de seguimiento y queda en el log.

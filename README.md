@@ -842,3 +842,169 @@ docker compose exec app npm run medir:consulta   # medición de la consulta
 En esta séptima entrega se pasó de "parece funcionar" a "se puede demostrar que funciona mejor". Se depuraron y corrigieron dos defectos con DevTools, se añadieron 48 pruebas unitarias con Jest para las reglas de negocio y de seguridad, se configuró ESLint (de 10 problemas a 0), se midieron y mejoraron una consulta, una imagen y las solicitudes de red, y se refactorizó el módulo de incidentes en controlador, servicio y modelo sin cambiar su comportamiento.
 
 ___
+
+## Instrucciones T1S8
+
+Integre y despliegue la plataforma de incidentes. Debe incluir CRUD persistente, autenticación, autorización, validación, HTTPS, configuración por entorno, logs, health check, pruebas finales y evidencias. Entregue URL, repositorio versionado, documentación técnica, manual de usuario y presentación. Realice una defensa con demostración del flujo y responda preguntas sobre arquitectura, seguridad, pruebas y limitaciones.
+
+### Entregables
+
+| Entregable | Dónde |
+|---|---|
+| **URL de producción** | **https://dbp-incidentes.onrender.com** |
+| Repositorio versionado | Este repositorio, etiqueta `v2.0.0` |
+| Documentación técnica | [`docs/DOCUMENTACION_TECNICA.md`](docs/DOCUMENTACION_TECNICA.md) |
+| Manual de usuario | [`docs/MANUAL_USUARIO.md`](docs/MANUAL_USUARIO.md) |
+| Pruebas en producción | [`reportes/pruebas-produccion.txt`](reportes/pruebas-produccion.txt) |
+
+> **Aviso:** la plataforma usa el plan gratuito de Render. Tras 15 minutos sin visitas el servicio se suspende y **la primera carga tarda cerca de un minuto**, mostrando la pantalla de abajo. No es un error: basta con esperar sin recargar; después responde con normalidad.
+
+<p align="center">
+    <img src="assets/repo_images/render_arranque_en_frio.png" alt="Pantalla de carga de Render mientras el servicio despierta: solicitud detectada, servicio despertando, asignación de recursos y aplicación casi lista" style="width: 650px;">
+    <br><em>Figura P0. Pantalla que muestra Render mientras el servicio despierta (en esta captura, unos 30 segundos).</em>
+</p>
+
+## Decisión de despliegue
+
+El servidor Ubuntu que se usó desde la quinta entrega también aloja otros servicios con información personal. Publicarlo en internet, ya sea abriendo puertos del router o con un túnel, habría hecho que el tráfico de cualquier persona llegara a esa misma máquina. Por eso **producción se desplegó en Render**, una infraestructura separada, y el servidor propio quedó como entorno de pruebas, sin cambios en su exposición.
+
+| Entorno | Dónde | Para qué |
+|---|---|---|
+| Desarrollo | PC | Editar código, `npm test`, `npm run lint` |
+| Pruebas | Servidor Ubuntu (Docker Compose, red local) | Probar cambios antes de publicarlos |
+| **Producción** | **Render** (región Virginia) | URL pública evaluada |
+
+Cada entorno usa credenciales distintas. La infraestructura de producción está descrita como código en `render.yaml` (Blueprint): la base PostgreSQL 16 **sin acceso desde internet** (`ipAllowList: []`, solo red privada), el servicio web que reutiliza el mismo `Dockerfile`, el health check, y las variables. `JWT_SECRET` lo genera Render, y las contraseñas iniciales se ingresan en el panel, nunca en el repositorio.
+
+```
+Navegador ──HTTPS──> Render (certificado TLS) ──> API Express (Docker) ──red privada──> PostgreSQL 16
+```
+
+<p align="center">
+    <img src="assets/repo_images/render_blueprint_variables.png" alt="Revisión del Blueprint de Render: crea la base dbp-incidentes-db y el servicio dbp-incidentes, y solicita las tres contraseñas iniciales sin valores precargados" style="width: 700px;">
+    <br><em>Figura P1. Blueprint de Render: la infraestructura sale de render.yaml y los secretos se ingresan en el panel, no en el código.</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/render_servicios_desplegados.png" alt="Panel de Render con el servicio dbp-incidentes desplegado en Docker y la base dbp-incidentes-db disponible con PostgreSQL 16, ambos en Virginia" style="width: 700px;">
+    <br><em>Figura P2. Servicio web (Docker) desplegado y base PostgreSQL 16 disponible, en la misma región para usar la red privada.</em>
+</p>
+
+### Gestión de secretos
+
+Durante la preparación de esta entrega se detectó que una copia del `.env` de desarrollo, con la contraseña real de la base local, había sido compartida como material de contexto en una herramienta externa. El repositorio no estaba afectado (`git log --all -- .env` sin resultados). El archivo se retiró y **la contraseña de la base se rotó** en el servidor de pruebas con `\password` (la clave nueva no queda en el historial de comandos), verificando después que `/api/salud` respondía `200`. Producción nació con secretos nuevos: `JWT_SECRET` generado por Render y contraseñas de usuarios ingresadas en el panel. El detalle está en la [documentación técnica, sección 13](docs/DOCUMENTACION_TECNICA.md#13-gestión-de-secretos-e-incidente-registrado).
+
+## Mejoras realizadas
+
+| Requisito | Antes (T1S7) | Después (T1S8) | Dónde |
+|---|---|---|---|
+| URL pública con HTTPS | Solo red local, CA interna de Caddy | Render con certificado válido y HSTS | `render.yaml` |
+| Configuración por entorno | Solo variables `DB_*` | También `DATABASE_URL`; la app no arranca si falta un valor o si es inválido | `src/config/config.js` |
+| Logs | Texto plano por consola | Una línea JSON por evento con nivel, fecha, id de solicitud, usuario y duración; campos sensibles ocultos y correos enmascarados | `src/utils/log.js`, `src/middleware/logger.js` |
+| Eventos de seguridad | Mensajes sueltos | Marcados para filtrarlos: `seguridad.login_fallido`, `seguridad.acceso_denegado`, `seguridad.cors_bloqueado` | Ídem |
+| Trazabilidad de errores | Sin relación entre el error del usuario y el log | Cabecera `X-Request-Id` y campo `solicitud` en cada error | `src/middleware/errorHandler.js` |
+| Health check | Revelaba la tecnología (`motor: Express`) | Versión, commit, entorno y estado de la base; `503` si la base no responde | `app.js` |
+| Publicación | Manual con `docker compose` | Imagen única para pruebas y producción; migraciones y datos iniciales al arrancar; apagado ordenado ante `SIGTERM` | `Dockerfile`, `app.js` |
+| Datos iniciales | Fallaban si se ejecutaban dos veces | Seeders idempotentes | `seeders/` |
+| Contraseñas en el código | `pruebas.js` tenía contraseñas por defecto | Se leen solo de variables de entorno | `scripts/pruebas.js` |
+| IP del cliente detrás de proxies | `trust proxy` fijo en 1 (pensado para Caddy) | `TRUST_PROXY` configurable y validado; el log registra cuántos saltos trae `X-Forwarded-For` | `src/config/security.js`, `app.js` |
+| Pruebas unitarias | 48 (83,8 %) | **60 (89,3 %)**, nueva suite `tests/operacion.test.js` | `tests/` |
+| Limpieza | Archivos `tmp-*.json` en la raíz | Eliminados | — |
+
+Ejemplo de un evento de seguridad en los logs (el correo se enmascara y no hay contraseñas ni tokens):
+
+```json
+{"time":"2026-10-24T23:57:15.036Z","level":"warn","msg":"login_fallido","event":"seguridad.login_fallido","reqId":"cb6dfc9e-7099-4261-acc5-80d5b5842bb1","email":"ad***@incidentes.local","ip":"…"}
+```
+
+<p align="center">
+    <img src="assets/repo_images/login_fallido_produccion.png" alt="Formulario de inicio de sesión con el correo difuminado y el mensaje Credenciales inválidas" style="width: 320px;">
+    <img src="assets/repo_images/logs_render_seguridad.png" alt="Logs de Render en formato JSON: eventos seguridad.login_fallido con el correo enmascarado ja***@gmail.com, error_cliente 401 y solicitud con event seguridad.acceso_denegado, todos con el mismo reqId" style="width: 700px;">
+    <br><em>Figura P7. Un inicio de sesión fallido en producción (izquierda) y su rastro en los logs de Render (derecha): el correo aparece enmascarado y los tres eventos comparten el mismo <code>reqId</code>.</em>
+</p>
+
+### Hallazgo en producción: la IP del cliente
+
+Al revisar la Figura P7 se detectó que dos intentos hechos **desde el mismo equipo** quedaron registrados con IPs distintas (`10.29.166.92` y `10.27.74.163`). Son direcciones **internas** de los proxies de Render y Cloudflare, no la del cliente. La causa era `trust proxy` fijo en 1, valor pensado para Caddy (un solo salto). Las consecuencias eran dos:
+
+- los logs no identificaban al cliente real;
+- el límite de 10 intentos de login "por IP" se aplicaba por proxy interno y no por atacante, lo que **debilitaba la protección contra fuerza bruta**.
+
+La corrección **no adivina** el número de proxies, porque Render no lo documenta oficialmente. `TRUST_PROXY` es ahora configurable y validado: la app no arranca con `true`, que permitiría falsificar la IP enviando un encabezado propio. Además, cada log registra `xff`, que es la **cantidad** de saltos en `X-Forwarded-For` (nunca las IPs), para medir el valor correcto en producción.
+
+El health check en producción identifica la versión exacta que está corriendo (versión y commit), el entorno y el estado de la base, sin revelar tecnologías internas:
+
+<p align="center">
+    <img src="assets/repo_images/salud_produccion.png" alt="Respuesta de /api/salud en producción: estado ok, versión 2.0.0, commit cec4c49, entorno production, base de datos conectada" style="width: 450px;">
+    <br><em>Figura P5. Health check de producción: versión 2.0.0, commit cec4c49, entorno production y base conectada.</em>
+</p>
+
+Las cabeceras de seguridad de la sexta entrega siguen activas en producción, ahora con **HSTS** (posible porque hay HTTPS real), `upgrade-insecure-requests` en la CSP y el `X-Request-Id` de cada respuesta. `X-Powered-By` no aparece.
+
+<p align="center">
+    <img src="assets/repo_images/cabeceras_seguridad_produccion.png" alt="Encabezados de respuesta de producción en DevTools: Content-Security-Policy con upgrade-insecure-requests, Strict-Transport-Security max-age=15552000, X-Content-Type-Options nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy no-referrer, X-Request-Id y contenido comprimido con Brotli" style="width: 650px;">
+    <br><em>Figura P6. Encabezados de respuesta en producción (DevTools → Red).</em>
+</p>
+
+## Pruebas finales en producción
+
+El script de la sexta entrega se ejecutó contra la URL pública: **39 de 39 casos** con el código HTTP esperado. Las contraseñas se ingresaron con `read -s`, así que no quedaron en el historial de la terminal.
+
+```bash
+export API_URL=https://dbp-incidentes.onrender.com
+read -rsp "Clave admin: " ADMIN_PASSWORD; echo; export ADMIN_PASSWORD   # igual para analista y lector
+npm run probar
+```
+
+| Grupo | Casos | Resultado |
+|---|:-:|:-:|
+| Autenticación (login por rol, clave incorrecta, correo inexistente) | 8 | ✅ |
+| Acceso sin token o con token falso (`alg: none`, otra clave, rol modificado) | 6 | ✅ |
+| CRUD con los permisos correctos | 5 | ✅ |
+| Permisos insuficientes (`403`) | 4 | ✅ |
+| Datos inválidos, regla de negocio (`409`), XSS, inyección SQL, asignación masiva | 10 | ✅ |
+| CORS | 2 | ✅ |
+| Eliminación y comprobación de `404` | 4 | ✅ |
+
+Pruebas unitarias y análisis estático después de los cambios de esta entrega:
+
+<p align="center">
+    <img src="assets/repo_images/jest_lint_v2.png" alt="Terminal con npm test: 4 suites y 60 pruebas aprobadas; npm run lint sin problemas" style="width: 450px;">
+    <br><em>Figura P8. Jest con 60 pruebas aprobadas en 4 suites y ESLint sin problemas.</em>
+</p>
+
+<p align="center">
+    <img src="assets/repo_images/pruebas_produccion_39.png" alt="Terminal con el script de pruebas contra https://dbp-incidentes.onrender.com: 39 de 39 pruebas con el código HTTP esperado" style="width: 700px;">
+    <br><em>Figura P3. Pruebas de integración contra producción: 39/39 con el código HTTP esperado.</em>
+</p>
+
+### Autorización por rol en producción
+
+La misma pantalla cambia según el rol, y la API rechaza por su cuenta lo que el rol no permite (casos `403` de la tabla anterior). Con la sesión de **lector**, el formulario se bloquea con un aviso y el detalle del ticket no muestra botones de estado ni de eliminación. Con la sesión de **administrador** (Figura M1 del [manual](docs/MANUAL_USUARIO.md)), el mismo INC-004 muestra **Pasar a revisión**, **Marcar resuelto** y **Eliminar**.
+
+<p align="center">
+    <img src="assets/repo_images/ui_lector_produccion.png" alt="Sesión de Auditor (solo lectura) en producción: aviso Tu rol (solo lectura) no permite registrar incidentes, formulario deshabilitado y detalle del INC-004 sin botones de acción" style="width: 700px;">
+    <br><em>Figura P4. Sesión de lector en producción: formulario bloqueado y detalle sin acciones.</em>
+</p>
+
+## Documentación
+
+- **[Documentación técnica](docs/DOCUMENTACION_TECNICA.md):** arquitectura, entornos, variables, instalación, modelo de datos, API, seguridad, logs y monitoreo, pruebas, despliegue y reversión, limitaciones.
+- **[Manual de usuario](docs/MANUAL_USUARIO.md):** acceso, roles, registro, búsqueda, seguimiento, eliminación y solución de problemas.
+
+## Cómo actualizar producción
+
+```bash
+npm test && npm run lint                 # verificaciones antes de publicar
+git push origin main && git push --tags
+# Render: Manual Deploy → Deploy latest commit (los despliegues automáticos están desactivados)
+curl https://dbp-incidentes.onrender.com/api/salud   # confirmar versión y commit
+```
+
+Si la versión nueva falla: Render → **Events** → **Rollback** al despliegue anterior.
+
+## ENTREGA T1S8
+
+En esta octava entrega la plataforma pasó de funcionar en una red local a ser un servicio público, operable y verificable. Se desplegó en Render con HTTPS válido y una base sin acceso desde internet, manteniendo el servidor propio aislado como entorno de pruebas. La configuración se lee por entorno y la aplicación se niega a arrancar si falta un valor. Los logs ahora son estructurados, marcan los eventos de seguridad y nunca registran secretos. El health check informa versión y estado de la base. Las pruebas finales se ejecutaron contra producción con 39/39 casos, más 60 pruebas unitarias y ESLint sin problemas. Se entregan además la documentación técnica y el manual de usuario.
+
+___

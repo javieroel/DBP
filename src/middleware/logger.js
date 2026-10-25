@@ -24,7 +24,9 @@ function requestLogger(req, res, next) {
       ms: Math.round(ms * 10) / 10,
       userId: req.user && req.user.id,
       role: req.user && req.user.role,
-      ip: req.ip
+      ip: req.ip,
+      // Solo la CANTIDAD de entradas de X-Forwarded-For (nunca las IPs): sirve para calibrar TRUST_PROXY
+      xff: req.get("X-Forwarded-For") ? req.get("X-Forwarded-For").split(",").length : undefined
     };
     // 401 y 403 son eventos de seguridad: se marcan para poder filtrarlos (OWASP A09)
     if (status === 401 || status === 403) fields.event = "seguridad.acceso_denegado";

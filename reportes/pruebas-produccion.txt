@@ -1,0 +1,64 @@
+PRUEBAS DE INTEGRACIÓN EN PRODUCCIÓN (Unidad 8)
+Fecha: 24/10/2026, 19:49 (UTC-5)
+URL: https://dbp-incidentes.onrender.com
+Versión: 2.0.0 (commit cec4c49), entorno production, Render (región Virginia)
+Comando: API_URL=https://dbp-incidentes.onrender.com npm run probar
+Credenciales: usuarios de prueba creados por el seeder; ingresadas con read -s (no quedan en el historial)
+
+=== 1. AUTENTICACIÓN (https://dbp-incidentes.onrender.com) ===
+OK    [200] GET /api/salud es pública
+OK    [200] Login correcto de admin -> rol=admin, token emitido
+OK    [200] Login correcto de analista -> rol=analista, token emitido
+OK    [200] Login correcto de lector -> rol=lector, token emitido
+OK    [200] GET /api/auth/me con token -> analista@incidentes.local
+OK    [401] Login con contraseña incorrecta -> Credenciales inválidas.
+OK    [401] Login con correo inexistente (mismo mensaje) -> Credenciales inválidas.
+OK    [400] Login con datos inválidos -> Ingrese un correo válido.
+
+=== 2. ACCESO SIN TOKEN O CON TOKEN FALSO ===
+OK    [401] GET incidentes sin token -> Se requiere autenticación: envíe el encabezado Authorization: Bearer <token>.
+OK    [401] POST incidente sin token -> Se requiere autenticación: envíe el encabezado Authorization: Bearer <token>.
+OK    [401] Token mal formado -> Token inválido.
+OK    [401] Token firmado con otra clave (rol admin falso) -> Token inválido.
+OK    [401] Token sin firma (alg "none") -> Token inválido.
+OK    [401] Token de lector modificado a rol admin -> Token inválido.
+
+=== 3. CRUD CON PERMISOS CORRECTOS ===
+OK    [200] Lector consulta y filtra incidentes -> 4 registros
+OK    [201] Analista crea incidente -> INC-008
+OK    [200] Lector consulta INC-008
+OK    [200] Analista cambia estado de INC-008 (PATCH) -> status=progress
+OK    [200] Admin reemplaza INC-008 (PUT) -> Fuerza bruta contenida en el SOC
+
+=== 4. PERMISOS INSUFICIENTES ===
+OK    [403] Lector intenta crear -> Permisos insuficientes: la acción requiere rol admin o analista.
+OK    [403] Lector intenta cambiar estado -> Permisos insuficientes: la acción requiere rol admin o analista.
+OK    [403] Analista intenta reemplazar (PUT) -> Permisos insuficientes: la acción requiere rol admin.
+OK    [403] Analista intenta eliminar -> Permisos insuficientes: la acción requiere rol admin.
+
+=== 5. DATOS INVÁLIDOS Y LIMPIEZA DE ENTRADAS ===
+OK    [400] Cuerpo vacío -> 6 campos rechazados
+OK    [400] Correo y categoría inválidos -> category: La categoría no es válida. | reporter: El correo de contacto no es válido.
+OK    [400] Fecha en el futuro -> date: La fecha no puede estar en el futuro.
+OK    [400] JSON mal formado -> El cuerpo de la petición no es un JSON válido.
+OK    [409] Reabrir incidente resuelto (regla de negocio) -> El incidente ya está resuelto ("closed") y no puede cambiar de estado.
+OK    [400] Identificador con formato incorrecto -> El identificador "abc" no tiene el formato INC-###.
+OK    [404] Incidente inexistente -> No existe el incidente INC-999
+OK    [201] XSS en título y descripción -> guardado: "Phishing con enlace" (sin etiquetas)
+OK    [200] Inyección SQL en la búsqueda -> 0 registros (se trató como texto)
+OK    [201] Asignación masiva (envía id=1) -> la base asignó INC-010
+
+=== 6. CORS ===
+OK    [403] Petición desde un origen no autorizado -> Origen no permitido por la política CORS.
+OK    [200] Petición desde el origen de la propia interfaz -> Access-Control-Allow-Origin: https://dbp-incidentes.onrender.com
+
+=== 7. ELIMINACIÓN (solo admin) ===
+OK    [204] Admin elimina INC-008
+OK    [204] Admin elimina INC-009
+OK    [204] Admin elimina INC-010
+OK    [404] INC-008 ya no existe
+
+Resultado: 39/39 pruebas con el código HTTP esperado.
+
+Nota: una ejecución previa obtuvo 32/39 porque la contraseña de admin se ingresó mal (401 en su login);
+las 7 fallas fueron consecuencia de no tener token de admin. Se corrigió el dato de entrada, no el código.

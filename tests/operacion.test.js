@@ -38,6 +38,32 @@ describe("Configuración por entorno", () => {
   });
 });
 
+describe("Confianza en el proxy (TRUST_PROXY)", () => {
+  function loadSecurity(value) {
+    const saved = { ...process.env };
+    process.env.TRUST_PROXY = value;
+    let security;
+    try {
+      jest.isolateModules(() => {
+        security = require("../src/config/security");
+      });
+    } finally {
+      process.env = saved;
+    }
+    return security;
+  }
+
+  test("acepta un número exacto de saltos", () => {
+    expect(loadSecurity("3").trustProxyHops).toBe(3);
+  });
+
+  test("rechaza true y valores fuera de rango: la app no arranca", () => {
+    expect(() => loadSecurity("true")).toThrow(/TRUST_PROXY/);
+    expect(() => loadSecurity("0")).toThrow(/TRUST_PROXY/);
+    expect(() => loadSecurity("50")).toThrow(/TRUST_PROXY/);
+  });
+});
+
 describe("Logs estructurados y seguros", () => {
   let output;
   beforeEach(() => {
@@ -78,6 +104,17 @@ describe("Logs estructurados y seguros", () => {
 
     handlers.finish();
     expect(output[0]).toMatchObject({ level: "warn", reqId: req.id, status: 403, path: "/api/incidentes/3", event: "seguridad.acceso_denegado" });
+  });
+
+  test("se registra cuántos proxies hay en X-Forwarded-For, pero nunca sus IPs", () => {
+    const handlers = {};
+    const headers = { "X-Forwarded-For": "203.0.113.7, 10.0.0.1, 10.0.0.2" };
+    const req = { get: (h) => headers[h], method: "GET", originalUrl: "/api/salud", ip: "203.0.113.7" };
+    const res = { statusCode: 200, set: jest.fn(), on: (event, fn) => (handlers[event] = fn) };
+    requestLogger(req, res, () => {});
+    handlers.finish();
+    expect(output[0].xff).toBe(3);
+    expect(JSON.stringify(output[0])).not.toContain("10.0.0.1");
   });
 
   test("un id de solicitud recibido con formato inválido se reemplaza", () => {
